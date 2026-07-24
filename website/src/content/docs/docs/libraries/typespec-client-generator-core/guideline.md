@@ -158,6 +158,8 @@ The initialization parameter can be either [`SdkEndpointParameter`](../reference
 
 **SdkMethodParameter** is a normal client-level parameter that can be used in some of the methods belonging to the client. For type details, refer to the next section.
 
+`SdkClientType.versionsEnum` is an optional reference to the [`SdkEnumType`](../reference/js-api/interfaces/sdkenumtype/) that represents the API versions enum for the client's service. This is useful for mixed api-version scenarios where different clients may have different version enums. It is `undefined` when the service has no versioning.
+
 ### Method
 
 Emitters get all methods belonging to a client with `SdkClientType.methods`. An [`SdkServiceMethod`](../reference/js-api/type-aliases/sdkservicemethod/) represents a client's method.
@@ -186,6 +188,16 @@ TCGC currently supports one kind of operation: [`SdkHttpOperation`](../reference
 `SdkHttpOperation` contains verb, path, URI template, query/header/path/cookie/body parameters, responses, and exceptions of an HTTP operation.
 
 Each parameter for an HTTP operation has a `methodParameterSegments` property to indicate the mapping of one payload parameter with the path of one or more method-level parameters or model properties. This helps emitters determine how to compose the underlying payload with the method's parameters. One body parameter can have several method-level parameter or model property mapping paths because of the implicit body parameter resolving from the TypeSpec HTTP library.
+
+An [`SdkBodyParameter`](../reference/js-api/interfaces/sdkbodyparameter/) may carry two optional metadata properties for streaming responses:
+
+- `streamMetadata`: Present when the body is a streaming type (e.g., a JSONL or SSE stream). Emitters use it to determine how to handle the streaming response generically.
+- `sseMetadata`: Present when the body is a server-sent event stream (`text/event-stream`). It contains an `events` array of [`SdkSseEventMetadata`](../reference/js-api/interfaces/sdksseeventmetadata/) entries — one per variant of the streamed `@events` union. Each entry provides:
+  - `eventType`: The SSE `event:` field name (from the named union variant). Undefined for unnamed variants, which are plain `message` events with no `event:` field.
+  - `isTerminalEvent`: Whether this event terminates the stream (from `@terminalEvent`).
+  - `isEventEnvelope`: Whether `type` is an event envelope wrapping a separate `@data` payload.
+  - `type` / `payloadType`: The envelope type and the actual payload type (identical when `isEventEnvelope` is `false`).
+  - `contentType` / `payloadContentType`: The content types of the envelope and payload respectively.
 
 ### Type
 
