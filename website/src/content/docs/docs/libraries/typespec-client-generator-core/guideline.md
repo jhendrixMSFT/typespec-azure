@@ -144,6 +144,8 @@ export async function $onEmit(context: EmitContext<SdkEmitterOptions>) {
 
 Emitters can get first-level clients of a client package from `SdkPackage.clients`. An [`SdkClientType`](../reference/js-api/interfaces/sdkclienttype/) represents a client in the package. Emitters can use `SdkClientType.children` to get nested sub clients, and use `SdkClientType.parent` to trace back.
 
+`SdkClientType.apiVersions` lists the API versions the client supports. When the client's service is versioned, `SdkClientType.versionsEnum` provides the corresponding [`SdkEnumType`](../reference/js-api/interfaces/sdkenumtype/) for that service's versions enum, so emitters can generate a strongly-typed API version enum instead of re-deriving it from the raw version list. It is `undefined` for unversioned services and for multi-service clients (where no single versions enum applies).
+
 `SdkClientType.clientInitialization` tells emitters how to initialize the client. [`SdkClientInitializationType`](../reference/js-api/interfaces/sdkclientinitializationtype/) contains info about the client's initialization parameters and how the client can be initialized, controlled by the `initializedBy` flags:
 
 - `Individually` (1): The client can be instantiated directly by the user.
@@ -187,13 +189,27 @@ TCGC currently supports one kind of operation: [`SdkHttpOperation`](../reference
 
 Each parameter for an HTTP operation has a `methodParameterSegments` property to indicate the mapping of one payload parameter with the path of one or more method-level parameters or model properties. This helps emitters determine how to compose the underlying payload with the method's parameters. One body parameter can have several method-level parameter or model property mapping paths because of the implicit body parameter resolving from the TypeSpec HTTP library.
 
+#### Streaming and Server-Sent Events
+
+When an HTTP body parameter or response is a streaming type (e.g. `JsonlStream`, `SSEStream`), the corresponding `SdkBodyParameter`, `SdkMethodResponse`, and HTTP response expose an optional `streamMetadata` property of type [`SdkStreamMetadata`](../reference/js-api/interfaces/sdkstreammetadata/), whose `contentTypes` lists the streamed content types.
+
+For server-sent event streams (`text/event-stream`, `SSEStream`), an additional `sseMetadata` property of type [`SdkSseMetadata`](../reference/js-api/interfaces/sdkssemetadata/) is present alongside `streamMetadata`. It is kept separate from `streamMetadata` because SSE, streaming, and events are modeled by distinct TypeSpec libraries (`@typespec/sse`, `@typespec/http`, and `@typespec/events`); `sseMetadata` is absent for non-event streams such as JSONL.
+
+`SdkSseMetadata.events` contains one [`SdkSseEventMetadata`](../reference/js-api/interfaces/sdksseeventmetadata/) entry per variant of the streamed `@events` union, giving emitters everything needed to (de)serialize each event without re-deriving it from raw TypeSpec:
+
+- `eventType`: the SSE `event:` field name, taken from the named union variant. `undefined` for unnamed variants, which are `message` events with no `event:` field.
+- `isTerminalEvent`: whether this event terminates the stream (from `@terminalEvent`), signaling the client to disconnect.
+- `isEventEnvelope`: whether `type` describes an event envelope wrapping a separate `@data` payload. When `false`, `type`/`contentType` and `payloadType`/`payloadContentType` are the same.
+- `type` / `contentType`: the event type and content type (the envelope when `isEventEnvelope` is `true`).
+- `payloadType` / `payloadContentType`: the event payload type and content type (matches `type`/`contentType` when `isEventEnvelope` is `false`).
+
 ### Type
 
 For types in TypeSpec, TCGC provides several client types to represent them in a way that's more similar to client languages.
 
 **Built-in Types:**
 
-- [`SdkBuiltInType`](../reference/js-api/interfaces/sdkbuiltintype/) represents a [built-in TypeSpec type](https://typespec.io/docs/language-basics/built-in-types/) or a [`scalar`](https://typespec.io/docs/language-basics/scalars/) type that derives from a built-in TypeSpec type, excluding `utcDateTime`, `offsetDateTime` and `duration`. The `encode` property indicates how to encode when sending to the service. It is set when the `@encode` decorator exists, or when the context determines a specific encoding — for example, `bytes` in a `multipart/form-data` part get `encode: "bytes"` (raw binary) rather than the default `"base64"`.
+- [`SdkBuiltInType`](../reference/js-api/interfaces/sdkbuiltintype/) represents a [built-in TypeSpec type](https://typespec.io/docs/language-basics/built-in-types/) or a [`scalar`](https://typespec.io/docs/language-basics/scalars/) type that derives from a built-in TypeSpec type, excluding `utcDateTime`, `offsetDateTime` and `duration`. The `encode` property indicates how to encode when sending to the service. It is set when the `@encode` decorator exists, or when the context determines a specific encoding — for example, `bytes` in a `multipart/form-data` part get `encode: "bytes"` (raw binary) rather than the default `"base64"`. Both integer and boolean types support `@encode(string)`, which sets `encode: "string"` to indicate the value is serialized as a string on the wire.
 
 **Date and Time Types:**
 
