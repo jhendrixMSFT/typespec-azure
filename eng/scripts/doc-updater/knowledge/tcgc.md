@@ -269,3 +269,26 @@ namespace (@clientNamespace), naming (@clientName), overload, structure (@client
 ## @clientLocation + scoped @client validation (July 2026)
 
 - Bug fix in `src/validations/types.ts`: `@clientLocation` name-collision validation now skips operations that belong to an explicit `@client` scoped to a _different_ language than the scope being validated (`isClientForOtherScopeOnly`). Prevents false-positive collisions for `is`-derived operations inside a `@client(..., "java")` interface. Internal validation only — no user-facing doc change.
+
+## SSE / Streaming Metadata (July 2026)
+
+- New emitter-facing type-graph surface in `src/interfaces.ts`: `SdkSseMetadata` (has `events: SdkSseEventMetadata[]`) and `SdkSseEventMetadata` (`eventType?`, `isTerminalEvent`, `isEventEnvelope`, `type`, `contentType?`, `payloadType`, `payloadContentType?`).
+- A new optional `sseMetadata?: SdkSseMetadata` was added to `SdkBodyParameter`, `SdkMethodResponse`, and the HTTP response base — present alongside the existing `streamMetadata?: SdkStreamMetadata` only for server-sent event streams (`text/event-stream`, `SSEStream`). Absent for non-event streams like JSONL.
+- Kept separate from `streamMetadata` because SSE/streaming/events come from distinct libs (`@typespec/sse`, `@typespec/http`, `@typespec/events`). `eventType` is undefined for unnamed union variants (plain `message` events). `isEventEnvelope` distinguishes an envelope wrapping a `@data` payload from a plain event.
+- Documented in guideline.md under Operation → "Streaming and Server-Sent Events". Emitter-consumed metadata; covered by unit tests `test/methods/sse.test.ts` and `test/methods/streams.test.ts`. No Spector spec needed.
+
+## Boolean @encode(string) (July 2026)
+
+- `addEncodeInfo` in `src/types.ts` now allows `boolean` (in addition to integer kinds) to be encoded as a string via `@encode(string)`, setting `encode: "string"` on the `SdkBuiltInType`. Works both on a model property (`@encode(string) value: boolean;`) and via a derived scalar (`scalar x extends boolean; @encode(string)`). Tests in `test/types/built-in.test.ts`.
+- Documented in guideline.md "Built-in Types" `encode` note.
+
+## SdkClientType.versionsEnum (July 2026)
+
+- New `versionsEnum?: SdkEnumType` on `SdkClientType` (`src/interfaces.ts`). Points to the service's versions enum (same object as the entry in `sdkPackage.enums`, `usage: UsageFlags.ApiVersionEnum`). `undefined` for unversioned services and for multi-service root clients (consistent with their empty `apiVersions`); sub-clients that map to a single service still get their own `versionsEnum`.
+- Backed by `TCGCContext.__serviceToVersionsSdkEnum` map and the new `getPackageVersionSdkEnum()` accessor. Tests in `test/package/versioning.test.ts`.
+- Documented in guideline.md "Client" section.
+
+## Linter Rule Docs `fileRef` (July 2026)
+
+- The three active TCGC linter rules (`require-client-suffix`, `property-name-conflict`, `csharp-no-url-suffix`) each gained a `docs: fileRef.fromPackageRoot("src/rules/<name>.md")` reference and an expanded `.md` (Impact / Diagnostic Message / How to Fix / Suppression sections). The `no-unnamed-types` rule was added then removed in the same batch — net not registered in `src/linter.ts`.
+- These `src/rules/*.md` files feed the generated per-rule reference pages via `regen-docs` (`tspd doc ... --rules-dir ../rules`). The committed `reference/linter.md` rules table already lists exactly these three rules; no hand edit needed. Regen requires a full package + core-submodule build.
