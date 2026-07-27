@@ -1,0 +1,181 @@
+---
+title: Agent Base Type
+description: Modeling ARM Agent resources with the experimental base types library
+llmstxt: true
+---
+
+import { ExampleRef } from "@components/sample";
+
+:::caution
+The Azure Resource Manager base types are **experimental** and may be subject to
+breaking changes. Using any type from the `Azure.ResourceManager.BaseTypes`
+namespace emits the `basetypes-experimental` warning, which you must suppress
+explicitly (see [Suppressing the experimental warning](#suppressing-the-experimental-warning)).
+:::
+
+## What is a base type?
+
+A _base type_ is an ARM-managed schema contract that a resource declares
+conformance to. Base types define structured constraints — required and optional
+properties — that a conforming resource must implement. A resource records the
+base types it implements through the [`@azureBaseType`](../../libraries/azure-resource-manager/reference/decorators.md#@Azure.ResourceManager.BaseTypes.azureBaseType)
+decorator, which takes a `BaseTypeInfo` value describing the base type and its
+schema version:
+
+```typespec
+model BaseTypeInfo {
+  /** The base type identifier. */
+  baseType: BaseType;
+
+  /** The schema version of the base type. */
+  version: string;
+}
+```
+
+`BaseType` is an extensible (open) enum, so new base types can be added without a
+breaking change. Today it defines `Agent` and `Relationship`. This guide focuses
+on the **Agent** base type, which is served from the
+`Azure.ResourceManager.BaseTypes.Agents` namespace.
+
+## The Agent base type
+
+The Agent base type models an AI agent as an ARM resource, together with its
+`Conversation` and `Response` child resources. The library provides ready-made
+resource templates so you don't have to apply `@azureBaseType` or wire up the
+envelope by hand:
+
+| Template                                       | Kind              | Purpose                                                                                       |
+| ---------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| `Agent<Properties>`                            | `TrackedResource` | The top-level agent resource. Applies `@azureBaseType` for the Agent base type automatically. |
+| `AgentConversation<Properties, AgentResource>` | `ProxyResource`   | A conversation child resource of an agent.                                                    |
+| `AgentResponse<Properties, AgentResource>`     | `ProxyResource`   | A response child resource of an agent.                                                        |
+
+Each conforming agent **must** define both a `Conversation` and a `Response`
+child resource, and each child resource **must** expose the full create, read,
+update, and delete lifecycle. These requirements are enforced by the
+[`arm-agent-base-type-child-resources`](../../libraries/azure-resource-manager/reference/linter.md)
+and [`arm-agent-base-type-lifecycle-operations`](../../libraries/azure-resource-manager/reference/linter.md)
+linting rules.
+
+## Deployment models: Appliance vs. Platform
+
+The Agent property and definition models come in two flavors that determine who
+owns the agent's configuration:
+
+- **Appliance** — the service (resource provider) owns and reports the agent
+  configuration. All configuration fields are **read-only**; clients cannot
+  modify them directly. Use the `...Appliance` models.
+- **Platform** — the client owns and manages the agent configuration.
+  Configuration fields are **writable**. Use the `...Platform` models.
+
+In both models the ARM-managed `baseTypes` property is always read-only.
+
+| Concept          | Appliance model                                                    | Platform model                                                    |
+| ---------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Agent properties | `AgentPropertiesAppliance<Definition>`                             | `AgentPropertiesPlatform<Definition>`                             |
+| Agent definition | `AgentDefinitionAppliance<HasModelDeploymentRef, HasInstructions>` | `AgentDefinitionPlatform<HasModelDeploymentRef, HasInstructions>` |
+
+The two boolean parameters on the definition models control optional fields.
+`HasModelDeploymentRef` includes a `modelDeploymentRef` property and
+`HasInstructions` includes an `instructions` property; both default to `false`.
+Pass `true` only for the optional fields your resource provider supports.
+
+## Defining an Agent resource
+
+Start by choosing a deployment model and defining the agent definition and
+properties, then declare the `Agent` resource:
+
+```typespec
+using Azure.ResourceManager;
+using Azure.ResourceManager.BaseTypes;
+using Azure.ResourceManager.BaseTypes.Agents;
+
+// Platform definition: writable fields managed by the client.
+// Both optional fields (modelDeploymentRef, instructions) are included.
+model ContosoPlatformDefinition is AgentDefinitionPlatform<true, true>;
+
+model ContosoAgentProperties is AgentPropertiesPlatform<ContosoPlatformDefinition> {
+  ...DefaultProvisioningStateProperty;
+}
+
+#suppress "@azure-tools/typespec-azure-resource-manager/basetypes-experimental" "Experimental BaseTypes"
+model ContosoAgent is Agent<ContosoAgentProperties> {
+  ...ResourceNameParameter<ContosoAgent>;
+}
+```
+
+For the Appliance model, swap in `AgentDefinitionAppliance` and
+`AgentPropertiesAppliance` — every configuration field then becomes read-only.
+
+## Adding the required child resources
+
+An Agent must have both a `Conversation` and a `Response` child resource.
+`ConversationProperties` and `ResponseProperties` supply the base fields; extend
+them with resource-provider-specific properties as needed. The `Response`
+property bag can also mix in `PreviousResponseProperty`, `ResponseOutputProperty`,
+and `ResponseInstructionsProperty`.
+
+```typespec
+model ContosoConversationProperties is ConversationProperties {
+  ...DefaultProvisioningStateProperty;
+}
+
+model ContosoConversation is AgentConversation<ContosoConversationProperties, ContosoAgent> {
+  ...ResourceNameParameter<ContosoConversation>;
+}
+
+model ContosoResponseProperties is ResponseProperties {
+  ...PreviousResponseProperty;
+  ...DefaultProvisioningStateProperty;
+}
+
+model ContosoResponse is AgentResponse<ContosoResponseProperties, ContosoAgent> {
+  ...ResourceNameParameter<ContosoResponse>;
+}
+```
+
+## Operations
+
+The agent resource uses the standard ARM operation templates. The child
+resources require the full create, read, update, and delete lifecycle — omitting
+any of these triggers the `arm-agent-base-type-lifecycle-operations` rule:
+
+```typespec
+@armResourceOperations
+interface Conversations {
+  get is ArmResourceRead<ContosoConversation>;
+  createOrUpdate is ArmResourceCreateOrReplaceAsync<ContosoConversation>;
+  update is ArmCustomPatchSync<
+    ContosoConversation,
+    Azure.ResourceManager.Foundations.ResourceUpdateModel<
+      ContosoConversation,
+      ContosoConversationProperties
+    >
+  >;
+  delete is ArmResourceDeleteWithoutOkAsync<ContosoConversation>;
+  listByAgent is ArmResourceListByParent<ContosoConversation>;
+}
+```
+
+See [ARM Resource Operations](./resource-operations.md) for the full catalog of
+operation templates.
+
+## Suppressing the experimental warning
+
+Because base types are experimental, referencing an Agent template in a resource
+definition emits the `basetypes-experimental` warning. Suppress it on each
+resource that uses a base type, with a reason:
+
+```typespec
+#suppress "@azure-tools/typespec-azure-resource-manager/basetypes-experimental" "Experimental BaseTypes"
+model ContosoAgent is Agent<ContosoAgentProperties> {
+  ...ResourceNameParameter<ContosoAgent>;
+}
+```
+
+## Complete example
+
+The following sample shows both the Appliance and Platform deployment models,
+their conversation and response child resources, and all required operations.
+
+<ExampleRef path="resource-manager/resource-types/agent" collapsed />
