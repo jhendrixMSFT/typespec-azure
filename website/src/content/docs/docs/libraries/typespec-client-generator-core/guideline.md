@@ -144,6 +144,8 @@ export async function $onEmit(context: EmitContext<SdkEmitterOptions>) {
 
 Emitters can get first-level clients of a client package from `SdkPackage.clients`. An [`SdkClientType`](../reference/js-api/interfaces/sdkclienttype/) represents a client in the package. Emitters can use `SdkClientType.children` to get nested sub clients, and use `SdkClientType.parent` to trace back.
 
+`SdkClientType.versionsEnum` is an optional reference to the [`SdkEnumType`](../reference/js-api/interfaces/sdkenumtype/) representing the API versions enum for the client's service. It is set for versioned services and allows emitters to map a client to its corresponding versions enum — useful for mixed API-version scenarios where different clients may use different version enums. It is `undefined` for unversioned services.
+
 `SdkClientType.clientInitialization` tells emitters how to initialize the client. [`SdkClientInitializationType`](../reference/js-api/interfaces/sdkclientinitializationtype/) contains info about the client's initialization parameters and how the client can be initialized, controlled by the `initializedBy` flags:
 
 - `Individually` (1): The client can be instantiated directly by the user.
@@ -328,6 +330,8 @@ TCGC uses several ways to find an HTTP operation's parameter's corresponding met
 
 Body parameters include a `serializationOptions` property that indicates how to serialize the body. TCGC automatically populates this from the operation's content types — for example, if the content type is `application/json`, the `json` option is set with the serialized name of the body parameter. This provides a consistent way for emitters to determine the serialization format, regardless of whether the body type is a model or a basic type.
 
+For streaming body parameters (e.g. JSONL or SSE streams), TCGC sets an optional `streamMetadata` property of type [`SdkStreamMetadata`](../reference/js-api/interfaces/sdkstreammetadata/) containing the stream's body type, the original stream model type, the payload type, and the associated content types. When the body is a server-sent event (SSE) stream, TCGC additionally sets a `sseMetadata` property of type [`SdkSseMetadata`](../reference/js-api/interfaces/sdkssemetadata/) that provides per-event metadata. Each entry in `sseMetadata.events` is an [`SdkSseEventMetadata`](../reference/js-api/interfaces/sdksseeventmetadata/) describing a single event variant — its `event:` field name (`eventType`), whether it terminates the stream (`isTerminalEvent`), whether it is an event envelope wrapping a separate `@data` payload (`isEventEnvelope`), and the event's type and content type.
+
 ### HTTP Operation Response Calculation
 
 The response is inferred from TypeSpec HTTP lib type [`HttpOperationResponse`](https://typespec.io/docs/libraries/http/reference/js-api/interfaces/httpoperationresponse/).
@@ -337,6 +341,8 @@ For each response, TCGC will check the response's content. If contents from diff
 If `@responseAsBool` is on the operation's upper level method, the `404` status code is always recognized as a normal response.
 
 HTTP responses include a `serializationOptions` property that indicates how to deserialize the response body. TCGC automatically populates this from the response's content types — for example, if the response content type is `application/json`, the `json` option is set. Responses without a body have empty serialization options.
+
+For streaming responses, TCGC sets an optional `streamMetadata` property on the response body with the same structure as for request bodies (see [HTTP Operation Parameters Handling](#http-operation-parameters-handling)). SSE streaming responses also include `sseMetadata` with per-event metadata.
 
 ### Type Detection
 
