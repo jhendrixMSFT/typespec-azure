@@ -144,6 +144,8 @@ export async function $onEmit(context: EmitContext<SdkEmitterOptions>) {
 
 Emitters can get first-level clients of a client package from `SdkPackage.clients`. An [`SdkClientType`](../reference/js-api/interfaces/sdkclienttype/) represents a client in the package. Emitters can use `SdkClientType.children` to get nested sub clients, and use `SdkClientType.parent` to trace back.
 
+`SdkClientType.versionsEnum` provides a reference to the [`SdkEnumType`](../reference/js-api/interfaces/sdkenumtype/) that represents the service's API versions enum (from the `@versioned` decorator). This property is `undefined` for unversioned services. Emitters can use it to map a client to its corresponding API versions enum, which is especially useful in mixed API-version scenarios where different clients may have different version enums.
+
 `SdkClientType.clientInitialization` tells emitters how to initialize the client. [`SdkClientInitializationType`](../reference/js-api/interfaces/sdkclientinitializationtype/) contains info about the client's initialization parameters and how the client can be initialized, controlled by the `initializedBy` flags:
 
 - `Individually` (1): The client can be instantiated directly by the user.
@@ -175,6 +177,21 @@ TCGC supports four kinds of methods: [`SdkBasicServiceMethod`](../reference/js-a
 **SdkLroServiceMethod** is an LRO method that calls a long-running server-side API. It extends `SdkBasicServiceMethod` and contains extra LRO information.
 
 **SdkLroPagingServiceMethod** is an LRO method that calls a long-running server-side API and has pageable responses. It extends `SdkBasicServiceMethod`, `SdkPagingServiceMethod` and `SdkLroServiceMethod`.
+
+#### Server-Sent Events (SSE)
+
+When an operation returns a `text/event-stream` response, TCGC populates `sseMetadata` on the method response (`SdkMethodResponse.sseMetadata`), the HTTP response (`SdkHttpResponse.sseMetadata`), and the body parameter (`SdkBodyParameter.sseMetadata`).
+
+[`SdkSseMetadata`](../reference/js-api/interfaces/sdkssemetadata/) contains an `events` array of [`SdkSseEventMetadata`](../reference/js-api/interfaces/sdksseeventmetadata/) entries — one per variant of the streamed `@events` union. Each entry provides:
+
+- `eventType`: The SSE `event:` field name (taken from the named union variant). `undefined` for unnamed variants, which are sent as `message` events.
+- `isTerminalEvent`: Whether the event signals end-of-stream (from `@terminalEvent`).
+- `isEventEnvelope`: Whether `type` is an envelope wrapping a separate `@data` payload.
+- `type`: The event type (the envelope when `isEventEnvelope` is `true`).
+- `payloadType`: The actual data payload type (same as `type` when `isEventEnvelope` is `false`).
+- `contentType` / `payloadContentType`: Content types for the envelope and payload respectively.
+
+`sseMetadata` is always present alongside `streamMetadata` for SSE streams; non-SSE streaming responses (e.g. JSONL) only have `streamMetadata`.
 
 ### Operation
 
