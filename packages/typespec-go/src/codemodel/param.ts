@@ -343,6 +343,21 @@ export interface QueryMapParameter extends HttpParameterBase {
   explode: boolean;
 }
 
+/** a collection of values that go in the HTTP query string */
+export interface QueryModelParameter extends HttpParameterBase {
+  kind: "queryModelParam";
+
+  /**
+   * the type of the parameter.
+   * the model fields/values are exploded
+   * into discrete query param keys/values
+   */
+  type: type.Model;
+
+  /** indicates if the value must be URL encoded */
+  isEncoded: boolean;
+}
+
 /** a scalar value that goes in the HTTP query string */
 export interface QueryScalarParameter extends HttpParameterBase {
   kind: "queryScalarParam";
