@@ -23,7 +23,7 @@ export type HeaderParameter =
 export type PathParameter = PathCollectionParameter | PathMapParameter | PathScalarParameter;
 
 /** the union of all query parameter types */
-export type QueryParameter = QueryCollectionParameter | QueryMapParameter | QueryScalarParameter;
+export type QueryParameter = QueryCollectionParameter | QueryMapParameter | QueryModelParameter | QueryScalarParameter;
 
 /** defines the possible method parameter types */
 export type MethodParameter =
@@ -778,6 +778,21 @@ export class QueryMapParameter extends HttpParameterBase implements QueryMapPara
     this.queryParameter = queryParam;
     this.isEncoded = isEncoded;
     this.explode = explode;
+  }
+}
+
+export class QueryModelParameter extends HttpParameterBase implements QueryModelParameter {
+  constructor(
+    name: string,
+    isEncoded: boolean,
+    type: type.Model,
+    style: ParameterStyle,
+    byValue: boolean,
+    location: ParameterLocation,
+  ) {
+    super(name, type, style, byValue, location);
+    this.kind = "queryModelParam";
+    this.isEncoded = isEncoded;
   }
 }
 

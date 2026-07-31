@@ -1673,6 +1673,16 @@ export class ClientAdapter {
               location,
             );
             break;
+          case "model":
+            adaptedParam = new go.QueryModelParameter(
+              paramName,
+              true,
+              paramType,
+              paramStyle,
+              byVal,
+              location,
+            )
+            break;
           case "slice": {
             let format: go.ExtendedCollectionFormat = opParam.explode ? 'multi' : 'csv';
             if (opParam.collectionFormat) {
