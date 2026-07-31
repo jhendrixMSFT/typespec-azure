@@ -1273,7 +1273,6 @@ function parseHeaderPathQueryParams(
     // parse params as required
     if (
       param.kind === "headerCollectionParam" ||
-      param.kind === "pathCollectionParam" ||
       param.kind === "queryCollectionParam"
     ) {
       // any element type other than string will require some form of conversion/parsing
@@ -1697,7 +1696,6 @@ function getFinalParamValue(
     // optional params are always in their "final" form
     if (
       param.kind === "headerCollectionParam" ||
-      param.kind === "pathCollectionParam" ||
       param.kind === "queryCollectionParam"
     ) {
       // for required params that are collections of strings, we split them inline.

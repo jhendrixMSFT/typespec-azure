@@ -381,7 +381,6 @@ export function formatParamValue(
   switch (param.kind) {
     case "formBodyCollectionParam":
     case "headerCollectionParam":
-    case "pathCollectionParam":
     case "queryCollectionParam": {
       if (param.collectionFormat === "multi") {
         throw new CodegenError(

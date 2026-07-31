@@ -740,6 +740,7 @@ function emitClientSideDefault(
       serializedName = param.headerName;
       break;
     case "queryCollectionParam":
+    case "queryMapParam":
     case "queryScalarParam":
       serializedName = param.queryParameter;
       break;
