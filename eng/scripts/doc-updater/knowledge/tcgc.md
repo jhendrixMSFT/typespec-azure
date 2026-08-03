@@ -269,3 +269,28 @@ namespace (@clientNamespace), naming (@clientName), overload, structure (@client
 ## @clientLocation + scoped @client validation (July 2026)
 
 - Bug fix in `src/validations/types.ts`: `@clientLocation` name-collision validation now skips operations that belong to an explicit `@client` scoped to a _different_ language than the scope being validated (`isClientForOtherScopeOnly`). Prevents false-positive collisions for `is`-derived operations inside a `@client(..., "java")` interface. Internal validation only — no user-facing doc change.
+
+## Client versionsEnum (Aug 2026)
+
+- `SdkClientType` gained `versionsEnum?: SdkEnumType` (`src/interfaces.ts`, populated in `src/clients.ts` via `getVersionsEnum`). It is the same `SdkEnumType` object that appears in `SdkPackage.enums` and carries `UsageFlags.ApiVersionEnum`.
+- `undefined` for unversioned services and for multi-service root clients (`@client({ service: [A, B], autoMergeService: true })`). Single-service sub clients still expose their own `versionsEnum`.
+- Backed by `context.getPackageVersionSdkEnum()` / `__serviceToVersionsSdkEnum` (Map<Namespace, SdkEnumType>), set in `handleAllTypes`. Tests: `test/package/versioning.test.ts` ("client has versionsEnum reference", "multi-service client has no versionsEnum").
+- Documented in guideline.md "Client" section. No Spector spec — emitter-consumed type-graph metadata.
+
+## SSE / stream metadata (Aug 2026)
+
+- `SdkStreamMetadata` (already existed) is on `SdkBodyParameter.streamMetadata` and `SdkHttpResponse.streamMetadata` for any streaming body/response (`HttpStream`, `JsonlStream`, `SSEStream`). Fields: `bodyType`, `originalType`, `streamType`, `contentTypes`.
+- NEW `SdkSseMetadata` + `SdkSseEventMetadata` (`src/interfaces.ts`, built in `src/http.ts` via `buildSdkSseMetadata`). Present as `sseMetadata` ALONGSIDE `streamMetadata` only for `SSEStream` (`text/event-stream`); absent for JSONL. Kept separate because SSE/http/events are 3 distinct TypeSpec libs (`@typespec/sse`, `@typespec/http`, `@typespec/events`).
+- `SdkSseMetadata.events`: one `SdkSseEventMetadata` per variant of the streamed `@events` union. Fields: `eventType` (wire `event:` name; undefined = unnamed `message` event), `isTerminalEvent` (`@terminalEvent`), `isEventEnvelope`, `type`/`contentType`, `payloadType`/`payloadContentType`.
+- `propagateSseEventUsage` propagates `UsageFlags.Json` per-event based on content type. Tests: `test/methods/sse.test.ts`, `test/methods/streams.test.ts` (uses `StreamsTesterWithBuiltInService`).
+- Documented in guideline.md "Operation" section ("Streaming and server-sent events" subsection).
+
+## boolean @encode(string) (Aug 2026)
+
+- `addEncodeInfo` in `src/types.ts` now allows `boolean` (in addition to integer kinds) to be encoded as string via `@encode(string)`, setting `encode: "string"`. Tests in `test/types/built-in.test.ts` ("boolean model property encoded as string", "boolean scalar encoded as string").
+- Documented in guideline.md "Built-in Types" bullet.
+
+## Linter rule churn (Aug 2026)
+
+- The `no-unnamed-types` rule was ADDED then REMOVED again in the same batch of commits (unregistered from `src/linter.ts`, its `.md` deleted). Net: it is NOT an active rule. Active rules remain: `require-client-suffix`, `property-name-conflict`, `csharp-no-url-suffix`.
+- These 3 rules gained `docs: fileRef.fromPackageRoot("src/rules/<name>.md")` pointing at co-located `.md` files (rule body only — no title/full-name frontmatter; that is added by `regen-docs`). `reference/linter.md` table already lists the 3 current rules correctly.
