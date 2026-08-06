@@ -1,0 +1,123 @@
+---
+title: Relationship Base Type
+description: Defining ARM Relationship extension resources to express connections between ARM resources
+---
+
+:::caution
+The Relationship base type is **experimental**. Its shape may change in future versions of the
+`@azure-tools/typespec-azure-resource-manager` library. Applying `@azureBaseType` (directly or
+through the `Relationship` template) in a provider namespace emits the `basetypes-experimental`
+warning, which you must explicitly suppress while the feature is experimental.
+:::
+
+A _Relationship_ is an ARM base type: a structured contract for extension resources that establish
+a connection between a source ARM resource and a target ARM resource. Two relationship types exist
+in public preview in ARM today: `serviceGroupMember` and `dependencyOf`.
+
+The library provides the `Relationship<Properties>` extension-resource template together with the
+`RelationshipProperties` base model for the property bag. These live in the
+`Azure.ResourceManager.BaseTypes.Relationships` namespace.
+
+```typespec
+using Azure.ResourceManager.BaseTypes.Relationships;
+```
+
+## Defining the relationship properties
+
+Derive your properties model from `RelationshipProperties`. The base model already carries the
+required fields (`sourceId`, `sourceTenant`, `targetId`, `targetTenant`, and `provisioningState`)
+and the ARM-managed `baseTypes` descriptor. You can add any RP-specific metadata fields:
+
+```typespec
+/** Provisioning state values for the dependency relationship. */
+@Azure.Core.lroStatus
+union DependencyOfProvisioningState {
+  ResourceProvisioningState,
+  Accepted: "Accepted",
+  Provisioning: "Provisioning",
+  Deleting: "Deleting",
+  string,
+}
+
+/** RP-specific metadata for a dependency relationship. */
+model DependencyOfMetadata {
+  /** The type of the relationship source. */
+  sourceType: string;
+  /** The type of the relationship target. */
+  targetType: string;
+  /** A human-readable relationship description. */
+  description?: string;
+}
+
+/** Properties for a dependency relationship. */
+model DependencyOfProperties
+  is RelationshipProperties<ProvisioningState = DependencyOfProvisioningState> {
+  /** Metadata describing the source and target types. */
+  metadata: DependencyOfMetadata;
+}
+```
+
+## Defining the relationship resource
+
+Use the `Relationship<Properties>` template to create the extension resource and suppress the
+experimental warning:
+
+```typespec
+#suppress "@azure-tools/typespec-azure-resource-manager/basetypes-experimental" "Experimental BaseTypes"
+model DependencyOf is Relationship<DependencyOfProperties> {
+  ...ResourceNameParameter<
+    Resource = DependencyOf,
+    KeyName = "relationshipName",
+    SegmentName = "dependencyOf",
+    NamePattern = "^[a-zA-Z0-9_.-]{1,64}$"
+  >;
+}
+```
+
+## Defining relationship operations
+
+Relationship resources are extension resources. Use the `Extension.*` operation templates to scope
+them to any ARM resource:
+
+```typespec
+/** Relationship operations scoped to a given source scope. */
+interface DependencyOfOps<Scope extends Azure.ResourceManager.Foundations.SimpleResource> {
+  get is Extension.Read<Scope, DependencyOf>;
+  create is Extension.CreateOrReplaceAsync<Scope, DependencyOf>;
+  update is Extension.CustomPatchAsync<
+    Scope,
+    DependencyOf,
+    Azure.ResourceManager.Foundations.ResourceUpdateModel<DependencyOf, DependencyOfProperties>
+  >;
+  delete is Extension.DeleteWithoutOkAsync<Scope, DependencyOf>;
+  list is Extension.ListByTarget<Scope, DependencyOf>;
+}
+
+/** Operations over any source scope. */
+@armResourceOperations
+interface DependencyOfRelationships extends DependencyOfOps<Extension.ScopeParameter> {}
+```
+
+## Applying `@azureBaseType` directly
+
+The `Relationship<Properties>` template applies `@azureBaseType` for you. If you need to declare
+conformance directly on a properties model, apply the decorator with a `BaseTypeInfo` value:
+
+```typespec
+@azureBaseType(#{ baseType: BaseType.Relationship, version: "2026-04-01" })
+model MyRelationshipProperties is RelationshipProperties {
+  metadata: MyMetadata;
+}
+```
+
+## Linter rule
+
+The
+[`use-relationship-required-properties`](/docs/libraries/azure-resource-manager/rules/use-relationship-required-properties)
+rule validates that resources decorated with `@azureBaseType` for the Relationship base type are
+extension resources and include the required `RelationshipProperties` schema.
+
+## Complete example
+
+For a full working specification, see the
+[Relationship Base Type sample](https://github.com/Azure/typespec-azure/tree/main/packages/samples/specs/resource-manager/resource-types/relationship).
