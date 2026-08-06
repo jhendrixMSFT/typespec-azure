@@ -651,6 +651,37 @@ TODO
 </ClientTabItem>
 </ClientTabs>
 
+### Type Validation
+
+The value passed to `@clientDefaultValue` must match the type of the property or parameter it is applied to. A `client-default-value-type-mismatch` warning is emitted when the types do not match:
+
+```typespec
+// ⚠️ Warning: string default on a numeric property
+@Azure.ClientGenerator.Core.Legacy.clientDefaultValue("10")
+@query pageSize?: int32;
+
+// ✅ Correct: numeric default matches numeric property
+@Azure.ClientGenerator.Core.Legacy.clientDefaultValue(10)
+@query pageSize?: int32;
+```
+
+When `@alternateType` is present the default value is validated against the alternate type instead:
+
+```typespec
+// ✅ No warning — default matches the alternate string type
+@Azure.ClientGenerator.Core.Legacy.clientDefaultValue("10")
+@Azure.ClientGenerator.Core.alternateType(string)
+@query pageSize?: int32;
+```
+
+If the mismatch is intentional, suppress the diagnostic explicitly:
+
+```typespec
+#suppress "@azure-tools/typespec-client-generator-core/client-default-value-type-mismatch" "intentional mismatch"
+@Azure.ClientGenerator.Core.Legacy.clientDefaultValue("10")
+@query pageSize?: int32;
+```
+
 ### Language-Specific Scoping
 
 You can also scope the default value to specific languages using the `scope` parameter:
