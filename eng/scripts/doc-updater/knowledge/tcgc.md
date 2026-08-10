@@ -269,3 +269,25 @@ namespace (@clientNamespace), naming (@clientName), overload, structure (@client
 ## @clientLocation + scoped @client validation (July 2026)
 
 - Bug fix in `src/validations/types.ts`: `@clientLocation` name-collision validation now skips operations that belong to an explicit `@client` scoped to a _different_ language than the scope being validated (`isClientForOtherScopeOnly`). Prevents false-positive collisions for `is`-derived operations inside a `@client(..., "java")` interface. Internal validation only — no user-facing doc change.
+
+## Boolean @encode(string) (Aug 2026)
+
+- `@encode(string)` now works on `boolean` (previously only integer kinds). `addEncodeInfo` in `src/types.ts` accepts `innerType.kind === "boolean"` in addition to `isSdkIntKind`. Result: `SdkBuiltInType.encode` is set to `"string"` for booleans. Tests: `test/types/built-in.test.ts` ("boolean model property encoded as string", "boolean scalar encoded as string").
+- Documented in guideline.md "Built-in Types" bullet (integer and boolean can be encoded as string). No Spector spec / howto ClientTabs needed — it's type-graph `encode` metadata consumed by emitters, not a distinct wire-level scenario beyond existing encode coverage.
+
+## SdkClientType.versionsEnum (Aug 2026)
+
+- New `SdkClientType.versionsEnum?: SdkEnumType` (`src/interfaces.ts`) exposes the service's API-versions enum directly on the client. Populated in `createSdkClientType` via `getVersionsEnum` from `context.getPackageVersionSdkEnum()` (new `TCGCContext` method backed by `__serviceToVersionsSdkEnum`, filled in `handleAllTypes`). `undefined` for unversioned services and multi-service clients.
+- `exportTCGCOutput` in `src/context.ts` now serializes `Map` values via `Object.fromEntries` so the new map-backed data survives export.
+- Documented in guideline.md "Client" section. Emitter-consumed metadata; no Spector spec needed.
+
+## SSE metadata: SdkSseMetadata / SdkSseEventMetadata (Aug 2026)
+
+- New emitter-facing interfaces `SdkSseMetadata` (has `events: SdkSseEventMetadata[]`) and `SdkSseEventMetadata` (`eventType?`, `isTerminalEvent`, `isEventEnvelope`, `type`, `contentType`, `payloadType`, `payloadContentType`) in `src/interfaces.ts`.
+- Populated by `buildSdkSseMetadata` in `src/http.ts` for `text/event-stream` streams whose streamed type is an `@events` union; set on `SdkBodyParameter.sseMetadata` and `SdkServiceResponse.sseMetadata` alongside `streamMetadata`. Returns `undefined` for non-event streams (e.g. JSONL). Draws on `@typespec/events` (event definitions) and `@typespec/sse` (`isTerminalEvent`/`@terminalEvent`).
+- Documented in guideline.md "HTTP Operation Response Calculation". Emitter-consumed; no Spector spec needed at doc-update time.
+
+## no-unnamed-types rule REMOVED (Aug 2026)
+
+- The `no-unnamed-types` linter rule (and its `.md`) was deleted from `src/rules/` and unregistered in `src/linter.ts`. `reference/linter.md` already reflects this (rule absent). Do not re-add docs for it.
+- Note: the remaining rules (`csharp-no-url-suffix`, `property-name-conflict`, `require-client-suffix`) gained `docs: fileRef.fromPackageRoot("src/rules/<name>.md")` plus richer `.md` bodies (Impact / Diagnostic Message / How to Fix / Suppression sections). Regenerating `reference/rules/*.md` requires a full `pnpm regen-docs` build; skipped in constrained doc-update runs.

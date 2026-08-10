@@ -158,6 +158,8 @@ The initialization parameter can be either [`SdkEndpointParameter`](../reference
 
 **SdkMethodParameter** is a normal client-level parameter that can be used in some of the methods belonging to the client. For type details, refer to the next section.
 
+`SdkClientType.versionsEnum` exposes the [`SdkEnumType`](../reference/js-api/interfaces/sdkenumtype/) that represents the API versions of the client's service. It lets emitters generate a service version enum without re-deriving it from the raw TypeSpec versioning metadata. It is `undefined` for unversioned services and for clients that span multiple services.
+
 ### Method
 
 Emitters get all methods belonging to a client with `SdkClientType.methods`. An [`SdkServiceMethod`](../reference/js-api/type-aliases/sdkservicemethod/) represents a client's method.
@@ -193,7 +195,7 @@ For types in TypeSpec, TCGC provides several client types to represent them in a
 
 **Built-in Types:**
 
-- [`SdkBuiltInType`](../reference/js-api/interfaces/sdkbuiltintype/) represents a [built-in TypeSpec type](https://typespec.io/docs/language-basics/built-in-types/) or a [`scalar`](https://typespec.io/docs/language-basics/scalars/) type that derives from a built-in TypeSpec type, excluding `utcDateTime`, `offsetDateTime` and `duration`. The `encode` property indicates how to encode when sending to the service. It is set when the `@encode` decorator exists, or when the context determines a specific encoding — for example, `bytes` in a `multipart/form-data` part get `encode: "bytes"` (raw binary) rather than the default `"base64"`.
+- [`SdkBuiltInType`](../reference/js-api/interfaces/sdkbuiltintype/) represents a [built-in TypeSpec type](https://typespec.io/docs/language-basics/built-in-types/) or a [`scalar`](https://typespec.io/docs/language-basics/scalars/) type that derives from a built-in TypeSpec type, excluding `utcDateTime`, `offsetDateTime` and `duration`. The `encode` property indicates how to encode when sending to the service. It is set when the `@encode` decorator exists, or when the context determines a specific encoding — for example, `bytes` in a `multipart/form-data` part get `encode: "bytes"` (raw binary) rather than the default `"base64"`. Integer and boolean types can be encoded as `string` (via `@encode(string)`), in which case `encode` is set to `"string"`.
 
 **Date and Time Types:**
 
@@ -337,6 +339,8 @@ For each response, TCGC will check the response's content. If contents from diff
 If `@responseAsBool` is on the operation's upper level method, the `404` status code is always recognized as a normal response.
 
 HTTP responses include a `serializationOptions` property that indicates how to deserialize the response body. TCGC automatically populates this from the response's content types — for example, if the response content type is `application/json`, the `json` option is set. Responses without a body have empty serialization options.
+
+Both HTTP body parameters and HTTP responses may carry an `sseMetadata` property ([`SdkSseMetadata`](../reference/js-api/interfaces/sdkssemetadata/)) when the body/response is a server-sent event (SSE, `text/event-stream`) stream. It is populated alongside `streamMetadata` and is kept separate because SSE, streaming, and events are modeled by distinct TypeSpec libraries (`@typespec/sse`, `@typespec/http`, and `@typespec/events`). `sseMetadata` is `undefined` for non-event streams such as JSONL. Its `events` array contains one [`SdkSseEventMetadata`](../reference/js-api/interfaces/sdkssemetadata/) entry per variant of the streamed `@events` union, giving emitters the `event:` name (`eventType`, `undefined` for unnamed `message` events), whether the event terminates the stream (`isTerminalEvent`, from `@terminalEvent`), the event and payload types, and their content types.
 
 ### Type Detection
 
