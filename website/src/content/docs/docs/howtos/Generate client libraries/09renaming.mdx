@@ -292,6 +292,48 @@ func (client *PetStoreNamespaceClient) Read(ctx context.Context, name string, op
 
 </ClientTabs>
 
+#### JavaScript reserved-word operations
+
+When an operation in a TypeSpec operation group has a name that is a JavaScript reserved word (such as `delete`, `in`, `return`, etc.), the TypeScript emitter automatically renames it by appending the singularized operation group name to avoid a conflict with the language keyword.
+
+For example, a `delete` operation in the `Conversations` group is renamed to `deleteConversation`:
+
+```tsp
+@route("/conversations")
+interface Conversations {
+  @delete
+  delete(@path conversationName: string): void;
+}
+```
+
+```typescript
+// Generated TypeScript (the rename is automatic)
+export interface ConversationsOperations {
+  deleteConversation: (conversationName: string, options?: ConversationsDeleteOptionalParams) => Promise<void>;
+}
+```
+
+If you need to preserve the reserved word as the public method name (for example, to match a previously published SDK), use `@clientName` with `"javascript"`:
+
+```tsp
+@route("/conversations")
+interface Conversations {
+  @delete
+  @clientName("delete", "javascript")
+  delete(@path conversationName: string): void;
+}
+```
+
+```typescript
+// The public method keeps the name `delete`; the underlying API-layer
+// function is still guarded as `$delete` since it is not a valid identifier.
+export interface ConversationsOperations {
+  delete: (conversationName: string, options?: ConversationsDeleteOptionalParams) => Promise<void>;
+}
+```
+
+Operations that do **not** belong to an operation group and use a reserved word continue to fall back to the previous `$`-guarded name with a `@fixme` doc comment, unless a `@clientName` override is present.
+
 #### Renaming operation parameters
 
 Operation parameters can be renamed using the `@clientName` decorator applied from the `client.tsp` file using the `@@` augment syntax. This is useful when you want different parameter names in the generated client SDK while keeping the wire name unchanged.
