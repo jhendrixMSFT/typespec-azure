@@ -269,3 +269,25 @@ namespace (@clientNamespace), naming (@clientName), overload, structure (@client
 ## @clientLocation + scoped @client validation (July 2026)
 
 - Bug fix in `src/validations/types.ts`: `@clientLocation` name-collision validation now skips operations that belong to an explicit `@client` scoped to a _different_ language than the scope being validated (`isClientForOtherScopeOnly`). Prevents false-positive collisions for `is`-derived operations inside a `@client(..., "java")` interface. Internal validation only — no user-facing doc change.
+
+## SSE (server-sent events) Metadata (August 2026, PR SSE)
+
+- New interfaces in `src/interfaces.ts`: `SdkSseMetadata` (has `events: SdkSseEventMetadata[]`) and `SdkSseEventMetadata` (`eventType?`, `isTerminalEvent`, `isEventEnvelope`, `type`, `contentType?`, `payloadType`, `payloadContentType?`).
+- `sseMetadata?: SdkSseMetadata` was added to `SdkBodyParameter`, `SdkHttpResponse`, and the method-level `SdkServiceResponse`. It sits alongside the existing `streamMetadata`; SSE, streaming and events are three distinct TypeSpec libs (`@typespec/sse`, `@typespec/http`, `@typespec/events`).
+- Built in `src/http.ts` `buildSdkSseMetadata`: only produced when the stream type is a `Union` with `isEvents(...)` true (i.e. an `@events` union). Non-event streams (JSONL) get `undefined`. Per-event data comes from `@typespec/events` `getEventDefinitions` + `@typespec/sse` `isTerminalEvent`.
+- `src/types.ts` `propagateSseEventUsage`/`inferEventContentType`: each event `type`/`payloadType` gets `UsageFlags.Json` (when content type is JSON) and serialization options. Default content type inference mirrors the HTTP lib: Model → `application/json`, Scalar → `text/plain`, literal/const → undefined.
+- Documented in guideline.md HTTP Operation Response Calculation section. Tests: `test/methods/sse.test.ts`, `test/methods/streams.test.ts`; the test tester adds `StreamsTesterWithBuiltInService`. No Spector spec added here — emitter-consumed type-graph metadata.
+
+## boolean @encode(string) (August 2026)
+
+- `src/types.ts` `addEncodeInfo`: the string-encoding branch now accepts `innerType.kind === "boolean"` in addition to integer kinds, so `@encode(string)` on a `boolean` (or a scalar derived from `boolean`) yields `SdkBuiltInType` with `encode: "string"`. Derived scalars keep `baseType.kind === "boolean"`. Tests in `test/types/built-in.test.ts` ("boolean model property/scalar encoded as string"). Documented in guideline.md Built-in Types bullet.
+
+## Client versionsEnum (August 2026)
+
+- `SdkClientType` gained `versionsEnum?: SdkEnumType` (`src/interfaces.ts`), populated in `src/clients.ts` `getVersionsEnum` from `context.getPackageVersionSdkEnum()` (backed by `__serviceToVersionsSdkEnum`, populated in `src/types.ts` when the versions enum is created, exposed via `getPackageVersionSdkEnum()` on the context in `src/context.ts`).
+- It is the SAME object as the corresponding entry in `SdkPackage.enums` (usage `UsageFlags.ApiVersionEnum`). `undefined` for unversioned services and for multi-service root clients (e.g. `autoMergeService` combine clients); per-service sub-clients still get their own `versionsEnum`. Tests: `test/package/versioning.test.ts` ("client has versionsEnum reference", "multi-service client has no versionsEnum"). Documented in guideline.md Client section.
+
+## no-unnamed-types rule removed (August 2026)
+
+- The `no-unnamed-types` rule was added and then removed again within the same review window (`src/rules/no-unnamed-types.rule.ts`, its `.md`, and `test/rules/no-unnamed-types.test.ts` deleted; removed from the `rules` array in `src/linter.ts`). Current registered rules: `requireClientSuffixRule`, `propertyNameConflictRule`, `csharpNoUrlSuffixRule` (last two also in `csharpRules`). `reference/linter.md` was already regenerated and does NOT list no-unnamed-types — do not re-add it.
+- Rule `.md` files (`src/rules/*.md`) referenced via `docs: fileRef.fromPackageRoot(...)` are the source for per-rule reference pages; they now include `## Impact`, `#### Diagnostic Message`, `#### How to Fix`, and `## Suppression` sections. These live in the package, not the website — do not hand-edit generated `website/.../reference/` output.

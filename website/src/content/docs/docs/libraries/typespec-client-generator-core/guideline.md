@@ -158,6 +158,8 @@ The initialization parameter can be either [`SdkEndpointParameter`](../reference
 
 **SdkMethodParameter** is a normal client-level parameter that can be used in some of the methods belonging to the client. For type details, refer to the next section.
 
+`SdkClientType.versionsEnum` references the [`SdkEnumType`](../reference/js-api/interfaces/sdkenumtype/) of the client's service versions (its `usage` is `UsageFlags.ApiVersionEnum`), and is the same object exposed on `SdkPackage.enums`. It is `undefined` for unversioned services and for multi-service root clients (for example an `autoMergeService` client that combines multiple services); in the multi-service case, each per-service sub client still carries its own `versionsEnum`.
+
 ### Method
 
 Emitters get all methods belonging to a client with `SdkClientType.methods`. An [`SdkServiceMethod`](../reference/js-api/type-aliases/sdkservicemethod/) represents a client's method.
@@ -193,7 +195,7 @@ For types in TypeSpec, TCGC provides several client types to represent them in a
 
 **Built-in Types:**
 
-- [`SdkBuiltInType`](../reference/js-api/interfaces/sdkbuiltintype/) represents a [built-in TypeSpec type](https://typespec.io/docs/language-basics/built-in-types/) or a [`scalar`](https://typespec.io/docs/language-basics/scalars/) type that derives from a built-in TypeSpec type, excluding `utcDateTime`, `offsetDateTime` and `duration`. The `encode` property indicates how to encode when sending to the service. It is set when the `@encode` decorator exists, or when the context determines a specific encoding — for example, `bytes` in a `multipart/form-data` part get `encode: "bytes"` (raw binary) rather than the default `"base64"`.
+- [`SdkBuiltInType`](../reference/js-api/interfaces/sdkbuiltintype/) represents a [built-in TypeSpec type](https://typespec.io/docs/language-basics/built-in-types/) or a [`scalar`](https://typespec.io/docs/language-basics/scalars/) type that derives from a built-in TypeSpec type, excluding `utcDateTime`, `offsetDateTime` and `duration`. The `encode` property indicates how to encode when sending to the service. It is set when the `@encode` decorator exists, or when the context determines a specific encoding — for example, `bytes` in a `multipart/form-data` part get `encode: "bytes"` (raw binary) rather than the default `"base64"`. Both integer and `boolean` types may be encoded as a string (`@encode(string)`), in which case `encode` is `"string"`; when the type is a derived scalar, `baseType` points at the underlying built-in type.
 
 **Date and Time Types:**
 
@@ -337,6 +339,8 @@ For each response, TCGC will check the response's content. If contents from diff
 If `@responseAsBool` is on the operation's upper level method, the `404` status code is always recognized as a normal response.
 
 HTTP responses include a `serializationOptions` property that indicates how to deserialize the response body. TCGC automatically populates this from the response's content types — for example, if the response content type is `application/json`, the `json` option is set. Responses without a body have empty serialization options.
+
+When a request body or response is a server-sent event stream (`text/event-stream`), the corresponding `SdkBodyParameter` / `SdkHttpResponse` (and the method-level `SdkServiceResponse`) carries an [`SdkSseMetadata`](../reference/js-api/interfaces/sdkssemetadata/) object on its `sseMetadata` property, in addition to the general `streamMetadata`. `sseMetadata` is only present for `@events` unions (SSE streams); it is absent for non-event streams such as JSONL. Its `events` array holds one [`SdkSseEventMetadata`](../reference/js-api/interfaces/sdksseeventmetadata/) per variant of the streamed union, giving emitters the wire `event:` name (`eventType`, `undefined` for unnamed `message` events), whether the event terminates the stream (`isTerminalEvent`, from `@terminalEvent`), whether the event `type` is an envelope wrapping a separate payload (`isEventEnvelope`), and the event/payload `SdkType`s with their content types (`type`/`contentType` and `payloadType`/`payloadContentType`, which coincide when `isEventEnvelope` is `false`). Each event `type` and `payloadType` also receives `UsageFlags.Json` and serialization options based on its effective content type (defaulting to `application/json` for models and `text/plain` for scalars).
 
 ### Type Detection
 
