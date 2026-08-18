@@ -750,7 +750,7 @@ export class ClientAdapter {
               sdkMethod.__raw?.node,
             );
           }
-          if (tokenParam.kind === "queryCollectionParam") {
+          if (tokenParam.kind === "queryCollectionParam" || tokenParam.kind === "queryMapParam" || tokenParam.kind === "queryModelParam") {
             throw new AdapterError(
               "InternalError",
               `unexpected collection continuation token request parameter ${tokenReq.name} for operation ${sdkMethod.name}`,
