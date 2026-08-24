@@ -269,3 +269,27 @@ namespace (@clientNamespace), naming (@clientName), overload, structure (@client
 ## @clientLocation + scoped @client validation (July 2026)
 
 - Bug fix in `src/validations/types.ts`: `@clientLocation` name-collision validation now skips operations that belong to an explicit `@client` scoped to a _different_ language than the scope being validated (`isClientForOtherScopeOnly`). Prevents false-positive collisions for `is`-derived operations inside a `@client(..., "java")` interface. Internal validation only — no user-facing doc change.
+
+## SSE / Stream Metadata (Aug 2026)
+
+- `src/interfaces.ts` added `SdkSseMetadata` and `SdkSseEventMetadata`, plus an `sseMetadata?: SdkSseMetadata` property on the body parameter and the HTTP response/exception interfaces (alongside the existing `streamMetadata`).
+- SSE metadata is only built for `text/event-stream` streams whose streamed type is a `@typespec/events` union; non-event streams (e.g. JSONL) get `streamMetadata` but `sseMetadata` is `undefined` (`buildSdkSseMetadata` in `src/http.ts` returns `undefined` when the stream type is not an `@events` union).
+- `SdkSseEventMetadata` fields: `eventType?` (SSE `event:` name from the named union variant; undefined = `message` event), `isTerminalEvent` (from `@typespec/sse` `@terminalEvent`), `isEventEnvelope`, `type`/`contentType` (envelope when `isEventEnvelope`), `payloadType`/`payloadContentType`.
+- Three TypeSpec libraries are involved: `@typespec/http` (streaming), `@typespec/events` (event definitions), `@typespec/sse` (terminal-event marker). Documented in guideline.md Operation section. Emitter-consumed; unit tests in `test/methods/sse.test.ts` and `test/methods/streams.test.ts`.
+
+## SdkClientType.versionsEnum (Aug 2026)
+
+- `SdkClientType` gained `versionsEnum?: SdkEnumType` — the API-versions enum (`UsageFlags.ApiVersionEnum`) for the client's single service. It is the SAME instance found in `SdkPackage.enums`.
+- `undefined` for unversioned services and for a multi-service root client; single-service sub clients still expose their own `versionsEnum`. Backed by a new `TCGCContext.getPackageVersionSdkEnum()` / `__serviceToVersionsSdkEnum` map. Tests in `test/package/versioning.test.ts`. Documented in guideline.md Client section.
+
+## Boolean encoded as string (Aug 2026)
+
+- `addEncodeInfo` in `src/types.ts` now allows `boolean` (in addition to integer kinds) to be encoded as `string` via `@encode(string)`. Resulting `SdkBuiltInType.encode` is `"string"`. Tests in `test/types/built-in.test.ts`. Documented in guideline.md built-in encode note.
+
+## no-unnamed-types rule REMOVED (Aug 2026)
+
+- The `no-unnamed-types` linter rule was added then removed within the same incremental window (rule file, test, and linter registration deleted in `src/linter.ts`). The active TCGC rule set is now just: `require-client-suffix`, `property-name-conflict`, `csharp-no-url-suffix`. `reference/linter.md` already reflects this at checkout — do NOT re-add no-unnamed-types docs.
+
+## regen-docs infeasibility note
+
+- `pnpm regen-docs` (tspd) requires the `core/` submodule packages (esp. `@typespec/compiler`) to be BUILT. In the doc-updater sandbox `core/packages/compiler/dist` is absent and a full `pnpm build` of core is not feasible offline, so reference-doc regeneration (including `reference/rules/*.md` detail pages) cannot be performed here. Rule `.md` doc bodies + `docs:` fileRef were added in the source PRs; the generated detail pages must be regenerated in an environment with core built.
