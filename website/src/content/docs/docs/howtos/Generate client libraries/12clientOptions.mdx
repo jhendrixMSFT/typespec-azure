@@ -16,7 +16,7 @@ The `@clientOption` decorator is intended for advanced scenarios where language-
 The `@clientOption` decorator allows spec authors to pass arbitrary key-value options to specific language emitters. This enables fine-grained control over code generation behavior that may vary between languages.
 
 ```typespec
-@clientOption(name: string, value: string | boolean | number, scope?: string)
+@clientOption(name: string, value: unknown | valueof unknown, scope?: string)
 ```
 
 ### Parameters
@@ -24,8 +24,8 @@ The `@clientOption` decorator allows spec authors to pass arbitrary key-value op
 | Parameter | Type                          | Description                                                                             |
 | --------- | ----------------------------- | --------------------------------------------------------------------------------------- |
 | `name`    | `string`                      | The name of the option to set                                                           |
-| `value`   | `string \| boolean \| number` | The value for the option                                                                |
-| `scope`   | `string` (optional)           | The target language scope. **Required** - omitting scope produces an additional warning |
+| `value`   | `string \| boolean \| number \| Model` | The value for the option. Supports primitives (string, boolean, number) or a reference to a TypeSpec model; the consuming emitter determines the expected shape. |
+| `scope`   | `string` (optional)           | The target language scope. **Required** - omitting scope produces a `decorator-requires-scope` warning |
 
 ## Usage
 
@@ -85,7 +85,7 @@ model MyModel {
 
 ### Different Value Types
 
-The decorator supports string, boolean, and numeric values:
+The decorator supports string, boolean, numeric values, and TypeSpec model references:
 
 ```typespec title=client.tsp
 #suppress "@azure-tools/typespec-client-generator-core/client-option"
@@ -105,6 +105,16 @@ model StringExample {
 model NumericExample {
   id: string;
 }
+```
+
+### TypeSpec Model Reference
+
+You can also pass a TypeSpec model as the value. TCGC resolves the model into its `SdkType`, preserving any customizations (for example, `@alternateType`) so the consuming emitter can handle it:
+
+```typespec title=client.tsp
+#suppress "@azure-tools/typespec-client-generator-core/client-option"
+@clientOption("composes", OpenAICreateResponseOptions, "csharp")
+model FoundryCreateResponseOptions {}
 ```
 
 ## How Emitters Access Client Options
