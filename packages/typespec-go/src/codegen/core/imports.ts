@@ -103,6 +103,9 @@ export class ImportManager {
       case "map":
         this.addForType(type.valueType);
         break;
+      case "ptr":
+        this.addForType(type.type);
+        break;
       case "slice":
         this.addForType(type.elementType);
         break;
