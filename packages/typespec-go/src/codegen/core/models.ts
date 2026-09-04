@@ -767,19 +767,19 @@ function generateJSONMarshallerBody(
   if (addlProps) {
     marshaller += `${indent.get()}if ${receiver}.AdditionalProperties != nil {\n`;
     marshaller += `${indent.push().get()}for key, val := range ${receiver}.AdditionalProperties {\n`;
-    if (go.isPtr(addlProps.valueType, "time") && addlProps.valueType.type.utc) {
+    if (go.isPtr(addlProps.valueType, "time") && addlProps.valueType.ptrType.utc) {
       // normalize utc datetimes before casting the (pointer) map value
       imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime/datetime");
       marshaller += `${indent.push().get()}if val != nil {\n`;
       marshaller += `${indent.push().get()}utcTime := val.UTC()\n`;
-      marshaller += `${indent.get()}objectMap[key] = (*datetime.${addlProps.valueType.type.format})(&utcTime)\n`;
+      marshaller += `${indent.get()}objectMap[key] = (*datetime.${addlProps.valueType.ptrType.format})(&utcTime)\n`;
       marshaller += `${indent.pop().get()}} else {\n`;
       marshaller += `${indent.push().get()}objectMap[key] = nil\n`;
       marshaller += `${indent.pop().get()}}\n`;
     } else {
       let assignment = "val";
       if (go.isPtr(addlProps.valueType, "time")) {
-        assignment = `(*${addlProps.valueType.type.format})(val)`;
+        assignment = `(*${addlProps.valueType.ptrType.format})(val)`;
       }
       marshaller += `${indent.push().get()}objectMap[key] = ${assignment}\n`;
     }
@@ -861,7 +861,7 @@ function generateJSONUnmarshallerBody(
     let assignment = `${ref}aux`;
     if (go.isPtr(addlProps.valueType, "time")) {
       imports.add("time");
-      auxType = addlProps.valueType.type.format;
+      auxType = addlProps.valueType.ptrType.format;
       assignment = `(*time.Time)(${assignment})`;
     }
     addlPropsText += `${indent.push().get()}var aux ${auxType}\n`;

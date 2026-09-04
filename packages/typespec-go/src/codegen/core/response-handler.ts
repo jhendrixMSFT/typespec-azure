@@ -157,7 +157,7 @@ function generateResponseUnmarshaller(
     unmarshallerText += `${indent.get()}${unmarshalTarget} = cp\n`;
     return unmarshallerText;
   } else if (go.isMap(type, "time")) {
-    const timeType = type.valueType.type;
+    const timeType = type.valueType.ptrType;
     imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime/datetime");
     unmarshallerText += `${indent.get()}aux := map[string]*datetime.${timeType.format}{}\n`;
     unmarshallerText += `${indent.get()}if err := runtime.UnmarshalAs${format}(resp, &aux); err != nil {\n`;

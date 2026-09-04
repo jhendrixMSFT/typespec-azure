@@ -112,7 +112,8 @@ export function isPolymorphicRoot(model: tcgc.SdkModelType): boolean {
   }
 }
 
-export function isPtrType<T extends go.WireType>(type: T): type is Extract<T, go.PtrType> {
+/** narrows type to a PtrType within the conditional block */
+export function isPtrType<T extends Exclude<go.WireType, go.Ptr>>(type: T): type is Extract<T, go.PtrType> {
   switch (type.kind) {
     case "constant":
     case "etag":

@@ -277,7 +277,7 @@ function generateUnmarshalObjects(goUnion: go.UnionStruct, indent: helpers.Inden
       throw new CodegenError("InternalError", `unexpected union type ${field.type.kind}`);
     }
 
-    const condition = `hasRequiredFields(rawMsg, ${getJsonFieldsForProbe(field.type.type)})`;
+    const condition = `hasRequiredFields(rawMsg, ${getJsonFieldsForProbe(field.type.ptrType)})`;
     const body = (indent: helpers.Indentation) =>
       `${indent.get()}err = json.Unmarshal(data, &${receiver}.${field.name})\n`;
     if (i === 0) {
@@ -478,7 +478,7 @@ function groupJsonObjects(goUnion: go.UnionStruct): Array<go.UnionField> {
   // returning a false positive. maps always appears after models
   objectFields.sort((a, b) => {
     if (go.isPtr(a.type, "model") && go.isPtr(b.type, "model")) {
-      return b.type.type.fields.length - a.type.type.fields.length;
+      return b.type.ptrType.fields.length - a.type.ptrType.fields.length;
     } else if (a.type.kind === "map" && b.type.kind === "map") {
       return 0;
     } else if (a.type.kind === "map") {

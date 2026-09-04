@@ -1374,7 +1374,7 @@ function recursiveVariantFieldName(type: go.WireType): string {
     case "map":
       return `MapOf${recursiveVariantFieldName(type.valueType)}`;
     case "ptr":
-      return recursiveVariantFieldName(type.type);
+      return recursiveVariantFieldName(type.ptrType);
     case "slice":
       return `SliceOf${recursiveVariantFieldName(type.elementType)}`;
     case "scalar":
@@ -1430,15 +1430,4 @@ function aggregateProperties(
     parent = parent.baseModel;
   }
   return { props: allProps, addlProps: addlProps };
-}
-
-function isMapValueType(type: go.WireType): type is go.MapValueType {
-  switch (type.kind) {
-    case "constantDef":
-    case "constantValue":
-    case "multipartContent":
-      return false;
-    default:
-      return true;
-  }
 }

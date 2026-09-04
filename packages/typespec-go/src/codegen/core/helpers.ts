@@ -1000,7 +1000,7 @@ export function recursiveUnwrapMapSlice(item: go.WireType): go.WireType {
     case "map":
       return recursiveUnwrapMapSlice(item.valueType);
     case "ptr":
-      return recursiveUnwrapMapSlice(item.type);
+      return recursiveUnwrapMapSlice(item.ptrType);
     case "slice":
       return recursiveUnwrapMapSlice(item.elementType);
     default:

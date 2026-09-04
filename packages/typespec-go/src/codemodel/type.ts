@@ -299,7 +299,7 @@ export interface Ptr<T extends PtrType = PtrType> {
   kind: "ptr";
 
   /** the type being pointed to */
-  type: T;
+  ptrType: T;
 }
 
 /** a byte slice containing raw JSON */
@@ -585,7 +585,7 @@ export function getTypeDeclaration(type: Client | Type, scope: PackageType, inst
     case "map":
       return `map[string]${getTypeDeclaration(type.valueType, scope)}`;
     case "ptr":
-      return `*${getTypeDeclaration(type.type, scope)}`;
+      return `*${getTypeDeclaration(type.ptrType, scope)}`;
     case "scalar":
       return type.type;
     case "slice":
@@ -663,7 +663,7 @@ export function isPtr<T extends PtrType["kind"] = PtrType["kind"]>(
   if (type.kind !== "ptr") {
     return false;
   }
-  return kinds.length === 0 || (kinds as Array<string>).includes(type.type.kind);
+  return kinds.length === 0 || (kinds as Array<string>).includes(type.ptrType.kind);
 }
 
 /** narrows type to a scalar with one of the specified underlying types (any scalar when no types are given) */
@@ -721,7 +721,7 @@ type UnwrappedPtr<T> = T extends Ptr<infer U> ? U : Exclude<T, Ptr>;
 /** unwraps type from a Ptr type, else returns type */
 export function unwrapPtr<T extends WireType>(type: T): UnwrappedPtr<T> {
   if (type.kind === "ptr") {
-    return type.type as UnwrappedPtr<T>;
+    return type.ptrType as UnwrappedPtr<T>;
   }
   return type as UnwrappedPtr<T>;
 }
@@ -959,9 +959,9 @@ export class PolymorphicModel extends ModelBase implements PolymorphicModel {
 }
 
 export class Ptr<T extends PtrType = PtrType> implements Ptr<T> {
-  constructor(type: T) {
+  constructor(ptrType: T) {
     this.kind = "ptr";
-    this.type = type;
+    this.ptrType = ptrType;
   }
 }
 

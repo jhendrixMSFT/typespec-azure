@@ -498,7 +498,7 @@ function generateServerTransportMethods(
             const respField = getResultFieldName(method.returns.result);
             const getResponseField = `server.GetResponse(respr).${respField}`;
             if (go.isPtr(method.returns.result.monomorphicType, "scalar", "string")) {
-              switch (method.returns.result.monomorphicType.type.kind) {
+              switch (method.returns.result.monomorphicType.ptrType.kind) {
                 case "scalar": {
                   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/to");
                   // create a local var that will hold the string-formatted scalar
@@ -537,7 +537,7 @@ function generateServerTransportMethods(
             let responseField = `server.GetResponse(respr)${respField}`;
             if (go.isPtr(method.returns.result.monomorphicType, "time")) {
               imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime/datetime");
-              responseField = `(*datetime.${method.returns.result.monomorphicType.type.format})(${responseField})`;
+              responseField = `(*datetime.${method.returns.result.monomorphicType.ptrType.format})(${responseField})`;
             }
             content += `${indent.get()}resp, err := server.MarshalResponseAs${method.returns.result.format}(respContent, ${responseField}, req)\n`;
           }
@@ -856,7 +856,7 @@ function dispatchForOperationBody(
           content += emitCase(
             field.serializedName,
             `${param.name}.${field.name}`,
-            field.type.kind === "ptr" ? field.type.type : field.type,
+            go.unwrapPtr(field.type),
             field.type.kind !== "ptr",
           );
         }

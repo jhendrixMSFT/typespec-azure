@@ -104,7 +104,7 @@ export class ImportManager {
         this.addForType(type.valueType);
         break;
       case "ptr":
-        this.addForType(type.type);
+        this.addForType(type.ptrType);
         break;
       case "slice":
         this.addForType(type.elementType);
