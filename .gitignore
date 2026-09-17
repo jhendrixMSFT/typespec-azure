@@ -232,6 +232,7 @@ packages/typespec-go/test/**/go.sum
 packages/typespec-go/test/**/LICENSE.txt
 packages/typespec-go/test/**/testdata
 !packages/typespec-go/test/local/gogenerate/testdata/generate/transforms.go
+!packages/typespec-go/test/http-specs/streaming/ssegroup/**
 # containingmod is a committed fixture: its go.mod/go.sum carry a v2 module
 # identity used to exercise the emitter's go.mod discovery logic, so re-include
 # them even though test/**/go.mod and test/**/go.sum are normally ignored.
