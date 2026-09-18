@@ -62,6 +62,6 @@ func (client *SseRetrieveClient) streamHandleResponse(resp *http.Response, succe
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[RetrievalEvents](resp.Body, decodeRetrievalEvents)
+	result.Stream = NewEventStream(resp.Body, decodeRetrievalEvents)
 	return result, nil
 }

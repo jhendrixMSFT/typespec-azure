@@ -66,7 +66,7 @@ func (client *SseProtocolClient) idHandleResponse(resp *http.Response, successCo
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[ProtocolEvents](resp.Body, decodeProtocolEvents)
+	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -108,7 +108,7 @@ func (client *SseProtocolClient) invalidIDHandleResponse(resp *http.Response, su
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[ProtocolEvents](resp.Body, decodeProtocolEvents)
+	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -151,7 +151,7 @@ func (client *SseProtocolClient) invalidRetryHandleResponse(resp *http.Response,
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[ProtocolEvents](resp.Body, decodeProtocolEvents)
+	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -193,7 +193,7 @@ func (client *SseProtocolClient) reconnectHandleResponse(resp *http.Response, su
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[ProtocolEvents](resp.Body, decodeProtocolEvents)
+	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -235,6 +235,6 @@ func (client *SseProtocolClient) retryHandleResponse(resp *http.Response, succes
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[ProtocolEvents](resp.Body, decodeProtocolEvents)
+	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
 	return result, nil
 }

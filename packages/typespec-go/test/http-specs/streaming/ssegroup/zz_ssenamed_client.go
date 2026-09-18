@@ -58,6 +58,6 @@ func (client *SseNamedClient) receiveHandleResponse(resp *http.Response, success
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[ResponseEvents](resp.Body, decodeResponseEvents)
+	result.Stream = NewEventStream(resp.Body, decodeResponseEvents)
 	return result, nil
 }

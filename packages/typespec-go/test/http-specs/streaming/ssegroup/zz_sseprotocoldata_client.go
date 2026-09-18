@@ -59,7 +59,7 @@ func (client *SseProtocolDataClient) withEnvelopeHandleResponse(resp *http.Respo
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[DataEvents](resp.Body, decodeDataEvents)
+	result.Stream = NewEventStream(resp.Body, decodeDataEvents)
 	return result, nil
 }
 
@@ -102,6 +102,6 @@ func (client *SseProtocolDataClient) withoutEnvelopeHandleResponse(resp *http.Re
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream[DataEvents](resp.Body, decodeDataEvents)
+	result.Stream = NewEventStream(resp.Body, decodeDataEvents)
 	return result, nil
 }
