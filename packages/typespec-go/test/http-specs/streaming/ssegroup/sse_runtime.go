@@ -47,7 +47,8 @@ type Event struct {
 // EventStream provides typed, forward-only iteration over a Server-Sent Events
 // response body. T is the generated event union for the operation.
 //
-// The zero value is not usable; construct one with NewEventStream.
+// A stream returned by a client method is never nil. The zero value is a valid,
+// already-exhausted stream: iteration yields no events and Close is a no-op.
 type EventStream[T any] struct {
 	body    io.ReadCloser
 	scanner *sseScanner
@@ -140,7 +141,8 @@ func writeSSEFrame(buf *bytes.Buffer, f Event) {
 // stream is complete, including when a terminal event is reached.
 func (s *EventStream[T]) Next() (T, error) {
 	var zero T
-	if s.done {
+	// a nil scanner is an empty (or producer-only) stream: nothing to consume.
+	if s.done || s.scanner == nil {
 		return zero, io.EOF
 	}
 	ev, err := s.scanner.next()
@@ -192,8 +194,13 @@ func (s *EventStream[T]) LastEventID() string { return s.lastID }
 // milliseconds, or -1 if the server never sent a valid retry field.
 func (s *EventStream[T]) RetryAfter() int { return s.retry }
 
-// Close closes the underlying response body.
-func (s *EventStream[T]) Close() error { return s.body.Close() }
+// Close closes the underlying response body, if any.
+func (s *EventStream[T]) Close() error {
+	if s.body == nil {
+		return nil
+	}
+	return s.body.Close()
+}
 
 // sseScanner turns a stream of SSE lines into discrete Event frames following
 // the WHATWG event stream parsing rules.
