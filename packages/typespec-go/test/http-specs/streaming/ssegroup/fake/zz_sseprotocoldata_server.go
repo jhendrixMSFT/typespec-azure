@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"ssegroup"
-	"ssegroup/streaming"
 
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
@@ -22,11 +20,11 @@ import (
 type SseProtocolDataServer struct {
 	// WithEnvelope is the fake for method SseProtocolDataClient.WithEnvelope
 	// HTTP status codes to indicate success: http.StatusOK
-	WithEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientWithEnvelopeOptions) (resp azfake.Responder[ssegroup.SseProtocolDataClientWithEnvelopeResponse], errResp azfake.ErrorResponder)
+	WithEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientWithEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
 
 	// WithoutEnvelope is the fake for method SseProtocolDataClient.WithoutEnvelope
 	// HTTP status codes to indicate success: http.StatusOK
-	WithoutEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientWithoutEnvelopeOptions) (resp azfake.Responder[ssegroup.SseProtocolDataClientWithoutEnvelopeResponse], errResp azfake.ErrorResponder)
+	WithoutEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientWithoutEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseProtocolDataServerTransport creates a new instance of SseProtocolDataServerTransport with the provided implementation.
@@ -91,15 +89,11 @@ func (s *SseProtocolDataServerTransport) dispatchWithEnvelope(req *http.Request)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeDataEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})
@@ -117,15 +111,11 @@ func (s *SseProtocolDataServerTransport) dispatchWithoutEnvelope(req *http.Reque
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeDataEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})

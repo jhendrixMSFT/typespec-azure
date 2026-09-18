@@ -4,7 +4,7 @@
 
 package ssegroup
 
-import "ssegroup/streaming"
+import "github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 
 // SseNamedClientReceiveResponse contains the response from method SseNamedClient.Receive.
 type SseNamedClientReceiveResponse struct {

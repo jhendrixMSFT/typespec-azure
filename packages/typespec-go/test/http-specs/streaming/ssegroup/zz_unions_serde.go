@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"ssegroup/streaming"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 )
 
 // decodeDataEvents maps an SSE event to a DataEvents value, discriminating on the event name.
@@ -99,117 +99,4 @@ func decodeUnnamedEvents(frame streaming.Frame) (UnnamedEvents, bool, error) {
 		return UnnamedEvents{}, false, err
 	}
 	return UnnamedEvents{Info: &v}, false, nil
-}
-
-// encodeDataEvents renders a DataEvents value to an SSE frame.
-func encodeDataEvents(e DataEvents) (streaming.Frame, error) {
-	switch {
-	case e.WithEnvelope != nil:
-		var contents string
-		if e.WithEnvelope.Contents != nil {
-			contents = *e.WithEnvelope.Contents
-		}
-		return streaming.Frame{Type: "withEnvelope", Data: []byte(contents)}, nil
-	case e.WithEnvelope1 != nil:
-		data, err := json.Marshal(e.WithEnvelope1)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Type: "withoutEnvelope", Data: data}, nil
-	default:
-		return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
-	}
-}
-
-// encodeProtocolEvents renders a ProtocolEvents value to an SSE frame.
-func encodeProtocolEvents(e ProtocolEvents) (streaming.Frame, error) {
-	if e.ProtocolInfo != nil {
-		data, err := json.Marshal(e.ProtocolInfo)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Type: "message", Data: data}, nil
-	}
-	return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
-}
-
-// encodeResponseEvents renders a ResponseEvents value to an SSE frame.
-func encodeResponseEvents(e ResponseEvents) (streaming.Frame, error) {
-	switch {
-	case e.ResponseCreated != nil:
-		data, err := json.Marshal(e.ResponseCreated)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Type: "responseCreated", Data: data}, nil
-	case e.ResponseDelta != nil:
-		data, err := json.Marshal(e.ResponseDelta)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Type: "responseDelta", Data: data}, nil
-	case e.LiteralString != nil:
-		return streaming.Frame{Data: []byte(*e.LiteralString)}, nil
-	default:
-		return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
-	}
-}
-
-// encodeRetrievalEvents renders a RetrievalEvents value to an SSE frame.
-func encodeRetrievalEvents(e RetrievalEvents) (streaming.Frame, error) {
-	switch {
-	case e.PartialResult != nil:
-		data, err := json.Marshal(e.PartialResult)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Type: "partialResult", Data: data}, nil
-	case e.FinalResult != nil:
-		data, err := json.Marshal(e.FinalResult)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Type: "finalResult", Data: data}, nil
-	case e.LiteralString != nil:
-		return streaming.Frame{Data: []byte(*e.LiteralString)}, nil
-	default:
-		return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
-	}
-}
-
-// encodeUnnamedEvents renders an UnnamedEvents value to an SSE frame.
-func encodeUnnamedEvents(e UnnamedEvents) (streaming.Frame, error) {
-	if e.Info != nil {
-		data, err := json.Marshal(e.Info)
-		if err != nil {
-			return streaming.Frame{}, err
-		}
-		return streaming.Frame{Data: data}, nil
-	}
-	return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
-}
-
-// NewDataEventsStream builds a producer SSE stream of DataEvents for fake servers.
-func NewDataEventsStream(events []DataEvents) (*streaming.Event[DataEvents], error) {
-	return streaming.NewEventFromValues(events, encodeDataEvents)
-}
-
-// NewProtocolEventsStream builds a producer SSE stream of ProtocolEvents for fake servers.
-func NewProtocolEventsStream(events []ProtocolEvents) (*streaming.Event[ProtocolEvents], error) {
-	return streaming.NewEventFromValues(events, encodeProtocolEvents)
-}
-
-// NewResponseEventsStream builds a producer SSE stream of ResponseEvents for fake servers.
-func NewResponseEventsStream(events []ResponseEvents) (*streaming.Event[ResponseEvents], error) {
-	return streaming.NewEventFromValues(events, encodeResponseEvents)
-}
-
-// NewRetrievalEventsStream builds a producer SSE stream of RetrievalEvents for fake servers.
-func NewRetrievalEventsStream(events []RetrievalEvents) (*streaming.Event[RetrievalEvents], error) {
-	return streaming.NewEventFromValues(events, encodeRetrievalEvents)
-}
-
-// NewUnnamedEventsStream builds a producer SSE stream of UnnamedEvents for fake servers.
-func NewUnnamedEventsStream(events []UnnamedEvents) (*streaming.Event[UnnamedEvents], error) {
-	return streaming.NewEventFromValues(events, encodeUnnamedEvents)
 }

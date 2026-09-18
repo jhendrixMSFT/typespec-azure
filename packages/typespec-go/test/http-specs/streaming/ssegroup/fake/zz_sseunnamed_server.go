@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"ssegroup"
-	"ssegroup/streaming"
 
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
@@ -22,7 +20,7 @@ import (
 type SseUnnamedServer struct {
 	// Receive is the fake for method SseUnnamedClient.Receive
 	// HTTP status codes to indicate success: http.StatusOK
-	Receive func(ctx context.Context, options *ssegroup.SseUnnamedClientReceiveOptions) (resp azfake.Responder[ssegroup.SseUnnamedClientReceiveResponse], errResp azfake.ErrorResponder)
+	Receive func(ctx context.Context, options *ssegroup.SseUnnamedClientReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseUnnamedServerTransport creates a new instance of SseUnnamedServerTransport with the provided implementation.
@@ -85,15 +83,11 @@ func (s *SseUnnamedServerTransport) dispatchReceive(req *http.Request) (*http.Re
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeUnnamedEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})

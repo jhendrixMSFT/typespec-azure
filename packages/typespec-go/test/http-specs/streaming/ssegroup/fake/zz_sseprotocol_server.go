@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"ssegroup"
-	"ssegroup/streaming"
 	"strings"
 	"sync"
 
@@ -27,23 +25,23 @@ type SseProtocolServer struct {
 
 	// ID is the fake for method SseProtocolClient.ID
 	// HTTP status codes to indicate success: http.StatusOK
-	ID func(ctx context.Context, options *ssegroup.SseProtocolClientIDOptions) (resp azfake.Responder[ssegroup.SseProtocolClientIDResponse], errResp azfake.ErrorResponder)
+	ID func(ctx context.Context, options *ssegroup.SseProtocolClientIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// InvalidID is the fake for method SseProtocolClient.InvalidID
 	// HTTP status codes to indicate success: http.StatusOK
-	InvalidID func(ctx context.Context, options *ssegroup.SseProtocolClientInvalidIDOptions) (resp azfake.Responder[ssegroup.SseProtocolClientInvalidIDResponse], errResp azfake.ErrorResponder)
+	InvalidID func(ctx context.Context, options *ssegroup.SseProtocolClientInvalidIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// InvalidRetry is the fake for method SseProtocolClient.InvalidRetry
 	// HTTP status codes to indicate success: http.StatusOK
-	InvalidRetry func(ctx context.Context, options *ssegroup.SseProtocolClientInvalidRetryOptions) (resp azfake.Responder[ssegroup.SseProtocolClientInvalidRetryResponse], errResp azfake.ErrorResponder)
+	InvalidRetry func(ctx context.Context, options *ssegroup.SseProtocolClientInvalidRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// Reconnect is the fake for method SseProtocolClient.Reconnect
 	// HTTP status codes to indicate success: http.StatusOK
-	Reconnect func(ctx context.Context, options *ssegroup.SseProtocolClientReconnectOptions) (resp azfake.Responder[ssegroup.SseProtocolClientReconnectResponse], errResp azfake.ErrorResponder)
+	Reconnect func(ctx context.Context, options *ssegroup.SseProtocolClientReconnectOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// Retry is the fake for method SseProtocolClient.Retry
 	// HTTP status codes to indicate success: http.StatusOK
-	Retry func(ctx context.Context, options *ssegroup.SseProtocolClientRetryOptions) (resp azfake.Responder[ssegroup.SseProtocolClientRetryResponse], errResp azfake.ErrorResponder)
+	Retry func(ctx context.Context, options *ssegroup.SseProtocolClientRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseProtocolServerTransport creates a new instance of SseProtocolServerTransport with the provided implementation.
@@ -136,15 +134,11 @@ func (s *SseProtocolServerTransport) dispatchID(req *http.Request) (*http.Respon
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeProtocolEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})
@@ -162,15 +156,11 @@ func (s *SseProtocolServerTransport) dispatchInvalidID(req *http.Request) (*http
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeProtocolEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})
@@ -188,15 +178,11 @@ func (s *SseProtocolServerTransport) dispatchInvalidRetry(req *http.Request) (*h
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeProtocolEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})
@@ -214,15 +200,11 @@ func (s *SseProtocolServerTransport) dispatchReconnect(req *http.Request) (*http
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeProtocolEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})
@@ -240,15 +222,11 @@ func (s *SseProtocolServerTransport) dispatchRetry(req *http.Request) (*http.Res
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	body, err := server.MarshalSSEResponder(&respr, encodeProtocolEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        body,
 		ContentType: "text/event-stream",
 	})

@@ -8,9 +8,9 @@ import (
 	"errors"
 	"io"
 	"ssegroup"
-	"ssegroup/streaming"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/stretchr/testify/require"
 )
 

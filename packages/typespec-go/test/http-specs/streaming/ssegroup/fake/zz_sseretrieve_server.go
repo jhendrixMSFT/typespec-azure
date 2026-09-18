@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"ssegroup"
-	"ssegroup/streaming"
 
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
@@ -22,7 +20,7 @@ import (
 type SseRetrieveServer struct {
 	// Stream is the fake for method SseRetrieveClient.Stream
 	// HTTP status codes to indicate success: http.StatusOK
-	Stream func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientStreamOptions) (resp azfake.Responder[ssegroup.SseRetrieveClientStreamResponse], errResp azfake.ErrorResponder)
+	Stream func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseRetrieveServerTransport creates a new instance of SseRetrieveServerTransport with the provided implementation.
@@ -89,15 +87,11 @@ func (s *SseRetrieveServerTransport) dispatchStream(req *http.Request) (*http.Re
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
-	respContent := server.GetResponseContent(respr)
-	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
-		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
-	}
-	streamBody, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
+	streamBody, err := server.MarshalSSEResponder(&respr, encodeRetrievalEvents)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := server.NewResponse(respContent, req, &server.ResponseOptions{
+	resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{
 		Body:        streamBody,
 		ContentType: "text/event-stream",
 	})
