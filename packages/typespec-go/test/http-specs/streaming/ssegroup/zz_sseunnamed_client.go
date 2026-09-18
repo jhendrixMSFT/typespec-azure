@@ -11,6 +11,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+
+	"ssegroup/streaming"
 )
 
 // SseUnnamedClient contains the methods for the SseUnnamed group.
@@ -58,6 +60,6 @@ func (client *SseUnnamedClient) receiveHandleResponse(resp *http.Response, succe
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeUnnamedEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeUnnamedEvents)
 	return result, nil
 }

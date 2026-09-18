@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"ssegroup"
+	"ssegroup/streaming"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func newSseClient(t *testing.T) *ssegroup.SseClient {
 	return client
 }
 
-func drain[T any](t *testing.T, s *ssegroup.EventStream[T]) []T {
+func drain[T any](t *testing.T, s *streaming.Event[T]) []T {
 	t.Helper()
 	var out []T
 	for {

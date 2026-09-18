@@ -11,6 +11,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+
+	"ssegroup/streaming"
 )
 
 // SseNamedClient contains the methods for the SseNamed group.
@@ -58,6 +60,6 @@ func (client *SseNamedClient) receiveHandleResponse(resp *http.Response, success
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeResponseEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeResponseEvents)
 	return result, nil
 }

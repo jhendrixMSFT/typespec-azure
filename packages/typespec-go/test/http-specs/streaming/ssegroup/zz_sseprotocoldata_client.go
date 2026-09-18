@@ -11,6 +11,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+
+	"ssegroup/streaming"
 )
 
 // SseProtocolDataClient contains the methods for the SseProtocolData group.
@@ -59,7 +61,7 @@ func (client *SseProtocolDataClient) withEnvelopeHandleResponse(resp *http.Respo
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeDataEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeDataEvents)
 	return result, nil
 }
 
@@ -102,6 +104,6 @@ func (client *SseProtocolDataClient) withoutEnvelopeHandleResponse(resp *http.Re
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeDataEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeDataEvents)
 	return result, nil
 }

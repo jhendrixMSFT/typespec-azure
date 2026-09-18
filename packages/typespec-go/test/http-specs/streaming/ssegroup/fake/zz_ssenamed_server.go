@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"ssegroup"
+	"ssegroup/streaming"
 
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
@@ -88,7 +89,7 @@ func (s *SseNamedServerTransport) dispatchReceive(req *http.Request) (*http.Resp
 	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
 		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
 	}
-	body, err := ssegroup.MarshalEventStream(server.GetResponse(respr).Stream)
+	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+
+	"ssegroup/streaming"
 )
 
 // SseProtocolClient contains the methods for the SseProtocol group.
@@ -66,7 +68,7 @@ func (client *SseProtocolClient) idHandleResponse(resp *http.Response, successCo
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -108,7 +110,7 @@ func (client *SseProtocolClient) invalidIDHandleResponse(resp *http.Response, su
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -151,7 +153,7 @@ func (client *SseProtocolClient) invalidRetryHandleResponse(resp *http.Response,
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -193,7 +195,7 @@ func (client *SseProtocolClient) reconnectHandleResponse(resp *http.Response, su
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeProtocolEvents)
 	return result, nil
 }
 
@@ -235,6 +237,6 @@ func (client *SseProtocolClient) retryHandleResponse(resp *http.Response, succes
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
-	result.Stream = NewEventStream(resp.Body, decodeProtocolEvents)
+	result.Stream = streaming.NewEvent(resp.Body, decodeProtocolEvents)
 	return result, nil
 }

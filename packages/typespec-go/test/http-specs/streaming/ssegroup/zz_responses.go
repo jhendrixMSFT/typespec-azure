@@ -4,72 +4,74 @@
 
 package ssegroup
 
+import "ssegroup/streaming"
+
 // SseNamedClientReceiveResponse contains the response from method SseNamedClient.Receive.
 type SseNamedClientReceiveResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[ResponseEvents]
+	Stream *streaming.Event[ResponseEvents]
 }
 
 // SseProtocolClientIDResponse contains the response from method SseProtocolClient.ID.
 type SseProtocolClientIDResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[ProtocolEvents]
+	Stream *streaming.Event[ProtocolEvents]
 }
 
 // SseProtocolClientInvalidIDResponse contains the response from method SseProtocolClient.InvalidID.
 type SseProtocolClientInvalidIDResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[ProtocolEvents]
+	Stream *streaming.Event[ProtocolEvents]
 }
 
 // SseProtocolClientInvalidRetryResponse contains the response from method SseProtocolClient.InvalidRetry.
 type SseProtocolClientInvalidRetryResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[ProtocolEvents]
+	Stream *streaming.Event[ProtocolEvents]
 }
 
 // SseProtocolClientReconnectResponse contains the response from method SseProtocolClient.Reconnect.
 type SseProtocolClientReconnectResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[ProtocolEvents]
+	Stream *streaming.Event[ProtocolEvents]
 }
 
 // SseProtocolClientRetryResponse contains the response from method SseProtocolClient.Retry.
 type SseProtocolClientRetryResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[ProtocolEvents]
+	Stream *streaming.Event[ProtocolEvents]
 }
 
 // SseProtocolDataClientWithEnvelopeResponse contains the response from method SseProtocolDataClient.WithEnvelope.
 type SseProtocolDataClientWithEnvelopeResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[DataEvents]
+	Stream *streaming.Event[DataEvents]
 }
 
 // SseProtocolDataClientWithoutEnvelopeResponse contains the response from method SseProtocolDataClient.WithoutEnvelope.
 type SseProtocolDataClientWithoutEnvelopeResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[DataEvents]
+	Stream *streaming.Event[DataEvents]
 }
 
 // SseRetrieveClientStreamResponse contains the response from method SseRetrieveClient.Stream.
 type SseRetrieveClientStreamResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[RetrievalEvents]
+	Stream *streaming.Event[RetrievalEvents]
 }
 
 // SseUnnamedClientReceiveResponse contains the response from method SseUnnamedClient.Receive.
 type SseUnnamedClientReceiveResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is
 	// never nil; an empty stream simply yields no events.
-	Stream *EventStream[UnnamedEvents]
+	Stream *streaming.Event[UnnamedEvents]
 }

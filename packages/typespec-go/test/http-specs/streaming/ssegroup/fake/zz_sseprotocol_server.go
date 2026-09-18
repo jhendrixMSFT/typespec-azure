@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"ssegroup"
+	"ssegroup/streaming"
 	"strings"
 	"sync"
 
@@ -139,7 +140,7 @@ func (s *SseProtocolServerTransport) dispatchID(req *http.Request) (*http.Respon
 	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
 		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
 	}
-	body, err := ssegroup.MarshalEventStream(server.GetResponse(respr).Stream)
+	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +166,7 @@ func (s *SseProtocolServerTransport) dispatchInvalidID(req *http.Request) (*http
 	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
 		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
 	}
-	body, err := ssegroup.MarshalEventStream(server.GetResponse(respr).Stream)
+	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +192,7 @@ func (s *SseProtocolServerTransport) dispatchInvalidRetry(req *http.Request) (*h
 	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
 		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
 	}
-	body, err := ssegroup.MarshalEventStream(server.GetResponse(respr).Stream)
+	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,7 @@ func (s *SseProtocolServerTransport) dispatchReconnect(req *http.Request) (*http
 	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
 		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
 	}
-	body, err := ssegroup.MarshalEventStream(server.GetResponse(respr).Stream)
+	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +244,7 @@ func (s *SseProtocolServerTransport) dispatchRetry(req *http.Request) (*http.Res
 	if !slices.Contains([]int{http.StatusOK}, respContent.HTTPStatus) {
 		return nil, &nonRetriableError{fmt.Errorf("unexpected status code %d. acceptable values are http.StatusOK", respContent.HTTPStatus)}
 	}
-	body, err := ssegroup.MarshalEventStream(server.GetResponse(respr).Stream)
+	body, err := streaming.MarshalEvent(server.GetResponse(respr).Stream)
 	if err != nil {
 		return nil, err
 	}

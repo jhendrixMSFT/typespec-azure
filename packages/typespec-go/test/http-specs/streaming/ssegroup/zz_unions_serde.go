@@ -7,207 +7,209 @@ package ssegroup
 import (
 	"encoding/json"
 	"fmt"
+
+	"ssegroup/streaming"
 )
 
 // decodeDataEvents maps an SSE event to a DataEvents value, discriminating on the event name.
-func decodeDataEvents(evt Event) (DataEvents, bool, error) {
-	switch evt.Type {
+func decodeDataEvents(frame streaming.Frame) (DataEvents, bool, error) {
+	switch frame.Type {
 	case "withEnvelope":
 		// @data on a text/plain property: the SSE data field is the raw contents.
-		s := string(evt.Data)
+		s := string(frame.Data)
 		return DataEvents{WithEnvelope: &WithEnvelope{Contents: &s}}, false, nil
 	case "withoutEnvelope":
 		var v WithEnvelope1
-		if err := json.Unmarshal(evt.Data, &v); err != nil {
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return DataEvents{}, false, err
 		}
 		return DataEvents{WithEnvelope1: &v}, false, nil
 	default:
-		return DataEvents{}, false, fmt.Errorf("unknown SSE event %q", evt.Type)
+		return DataEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
 }
 
 // decodeProtocolEvents maps an SSE event to a ProtocolEvents value. Envelope
-// metadata (id, retry) is surfaced by the EventStream, not the typed payload.
-func decodeProtocolEvents(evt Event) (ProtocolEvents, bool, error) {
-	switch evt.Type {
+// metadata (id, retry) is surfaced by the streaming.Event, not the typed payload.
+func decodeProtocolEvents(frame streaming.Frame) (ProtocolEvents, bool, error) {
+	switch frame.Type {
 	case "", "message":
 		var v ProtocolInfo
-		if err := json.Unmarshal(evt.Data, &v); err != nil {
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return ProtocolEvents{}, false, err
 		}
 		return ProtocolEvents{ProtocolInfo: &v}, false, nil
 	default:
-		return ProtocolEvents{}, false, fmt.Errorf("unknown SSE event %q", evt.Type)
+		return ProtocolEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
 }
 
 // decodeResponseEvents maps an SSE event to a ResponseEvents value. The terminal
 // "[DONE]" event ends the stream.
-func decodeResponseEvents(evt Event) (ResponseEvents, bool, error) {
-	switch evt.Type {
+func decodeResponseEvents(frame streaming.Frame) (ResponseEvents, bool, error) {
+	switch frame.Type {
 	case "responseCreated":
 		var v ResponseCreated
-		if err := json.Unmarshal(evt.Data, &v); err != nil {
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return ResponseEvents{}, false, err
 		}
 		return ResponseEvents{ResponseCreated: &v}, false, nil
 	case "responseDelta":
 		var v ResponseDelta
-		if err := json.Unmarshal(evt.Data, &v); err != nil {
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return ResponseEvents{}, false, err
 		}
 		return ResponseEvents{ResponseDelta: &v}, false, nil
 	default:
-		if s := string(evt.Data); s == "[DONE]" {
+		if s := string(frame.Data); s == "[DONE]" {
 			return ResponseEvents{LiteralString: &s}, true, nil
 		}
-		return ResponseEvents{}, false, fmt.Errorf("unknown SSE event %q", evt.Type)
+		return ResponseEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
 }
 
 // decodeRetrievalEvents maps an SSE event to a RetrievalEvents value. The terminal
 // "[DONE]" event ends the stream.
-func decodeRetrievalEvents(evt Event) (RetrievalEvents, bool, error) {
-	switch evt.Type {
+func decodeRetrievalEvents(frame streaming.Frame) (RetrievalEvents, bool, error) {
+	switch frame.Type {
 	case "partialResult":
 		var v PartialResult
-		if err := json.Unmarshal(evt.Data, &v); err != nil {
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return RetrievalEvents{}, false, err
 		}
 		return RetrievalEvents{PartialResult: &v}, false, nil
 	case "finalResult":
 		var v FinalResult
-		if err := json.Unmarshal(evt.Data, &v); err != nil {
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return RetrievalEvents{}, false, err
 		}
 		return RetrievalEvents{FinalResult: &v}, false, nil
 	default:
-		if s := string(evt.Data); s == "[DONE]" {
+		if s := string(frame.Data); s == "[DONE]" {
 			return RetrievalEvents{LiteralString: &s}, true, nil
 		}
-		return RetrievalEvents{}, false, fmt.Errorf("unknown SSE event %q", evt.Type)
+		return RetrievalEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
 }
 
 // decodeUnnamedEvents maps an SSE event to an UnnamedEvents value.
-func decodeUnnamedEvents(evt Event) (UnnamedEvents, bool, error) {
+func decodeUnnamedEvents(frame streaming.Frame) (UnnamedEvents, bool, error) {
 	var v Info
-	if err := json.Unmarshal(evt.Data, &v); err != nil {
+	if err := json.Unmarshal(frame.Data, &v); err != nil {
 		return UnnamedEvents{}, false, err
 	}
 	return UnnamedEvents{Info: &v}, false, nil
 }
 
 // encodeDataEvents renders a DataEvents value to an SSE frame.
-func encodeDataEvents(e DataEvents) (Event, error) {
+func encodeDataEvents(e DataEvents) (streaming.Frame, error) {
 	switch {
 	case e.WithEnvelope != nil:
 		var contents string
 		if e.WithEnvelope.Contents != nil {
 			contents = *e.WithEnvelope.Contents
 		}
-		return Event{Type: "withEnvelope", Data: []byte(contents)}, nil
+		return streaming.Frame{Type: "withEnvelope", Data: []byte(contents)}, nil
 	case e.WithEnvelope1 != nil:
 		data, err := json.Marshal(e.WithEnvelope1)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Type: "withoutEnvelope", Data: data}, nil
+		return streaming.Frame{Type: "withoutEnvelope", Data: data}, nil
 	default:
-		return Event{}, fmt.Errorf("no field set in %T", e)
+		return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
 	}
 }
 
 // encodeProtocolEvents renders a ProtocolEvents value to an SSE frame.
-func encodeProtocolEvents(e ProtocolEvents) (Event, error) {
+func encodeProtocolEvents(e ProtocolEvents) (streaming.Frame, error) {
 	if e.ProtocolInfo != nil {
 		data, err := json.Marshal(e.ProtocolInfo)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Type: "message", Data: data}, nil
+		return streaming.Frame{Type: "message", Data: data}, nil
 	}
-	return Event{}, fmt.Errorf("no field set in %T", e)
+	return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
 }
 
 // encodeResponseEvents renders a ResponseEvents value to an SSE frame.
-func encodeResponseEvents(e ResponseEvents) (Event, error) {
+func encodeResponseEvents(e ResponseEvents) (streaming.Frame, error) {
 	switch {
 	case e.ResponseCreated != nil:
 		data, err := json.Marshal(e.ResponseCreated)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Type: "responseCreated", Data: data}, nil
+		return streaming.Frame{Type: "responseCreated", Data: data}, nil
 	case e.ResponseDelta != nil:
 		data, err := json.Marshal(e.ResponseDelta)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Type: "responseDelta", Data: data}, nil
+		return streaming.Frame{Type: "responseDelta", Data: data}, nil
 	case e.LiteralString != nil:
-		return Event{Data: []byte(*e.LiteralString)}, nil
+		return streaming.Frame{Data: []byte(*e.LiteralString)}, nil
 	default:
-		return Event{}, fmt.Errorf("no field set in %T", e)
+		return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
 	}
 }
 
 // encodeRetrievalEvents renders a RetrievalEvents value to an SSE frame.
-func encodeRetrievalEvents(e RetrievalEvents) (Event, error) {
+func encodeRetrievalEvents(e RetrievalEvents) (streaming.Frame, error) {
 	switch {
 	case e.PartialResult != nil:
 		data, err := json.Marshal(e.PartialResult)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Type: "partialResult", Data: data}, nil
+		return streaming.Frame{Type: "partialResult", Data: data}, nil
 	case e.FinalResult != nil:
 		data, err := json.Marshal(e.FinalResult)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Type: "finalResult", Data: data}, nil
+		return streaming.Frame{Type: "finalResult", Data: data}, nil
 	case e.LiteralString != nil:
-		return Event{Data: []byte(*e.LiteralString)}, nil
+		return streaming.Frame{Data: []byte(*e.LiteralString)}, nil
 	default:
-		return Event{}, fmt.Errorf("no field set in %T", e)
+		return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
 	}
 }
 
 // encodeUnnamedEvents renders an UnnamedEvents value to an SSE frame.
-func encodeUnnamedEvents(e UnnamedEvents) (Event, error) {
+func encodeUnnamedEvents(e UnnamedEvents) (streaming.Frame, error) {
 	if e.Info != nil {
 		data, err := json.Marshal(e.Info)
 		if err != nil {
-			return Event{}, err
+			return streaming.Frame{}, err
 		}
-		return Event{Data: data}, nil
+		return streaming.Frame{Data: data}, nil
 	}
-	return Event{}, fmt.Errorf("no field set in %T", e)
+	return streaming.Frame{}, fmt.Errorf("no field set in %T", e)
 }
 
 // NewDataEventsStream builds a producer SSE stream of DataEvents for fake servers.
-func NewDataEventsStream(events []DataEvents) (*EventStream[DataEvents], error) {
-	return newEventStreamFromEvents(events, encodeDataEvents)
+func NewDataEventsStream(events []DataEvents) (*streaming.Event[DataEvents], error) {
+	return streaming.NewEventFromValues(events, encodeDataEvents)
 }
 
 // NewProtocolEventsStream builds a producer SSE stream of ProtocolEvents for fake servers.
-func NewProtocolEventsStream(events []ProtocolEvents) (*EventStream[ProtocolEvents], error) {
-	return newEventStreamFromEvents(events, encodeProtocolEvents)
+func NewProtocolEventsStream(events []ProtocolEvents) (*streaming.Event[ProtocolEvents], error) {
+	return streaming.NewEventFromValues(events, encodeProtocolEvents)
 }
 
 // NewResponseEventsStream builds a producer SSE stream of ResponseEvents for fake servers.
-func NewResponseEventsStream(events []ResponseEvents) (*EventStream[ResponseEvents], error) {
-	return newEventStreamFromEvents(events, encodeResponseEvents)
+func NewResponseEventsStream(events []ResponseEvents) (*streaming.Event[ResponseEvents], error) {
+	return streaming.NewEventFromValues(events, encodeResponseEvents)
 }
 
 // NewRetrievalEventsStream builds a producer SSE stream of RetrievalEvents for fake servers.
-func NewRetrievalEventsStream(events []RetrievalEvents) (*EventStream[RetrievalEvents], error) {
-	return newEventStreamFromEvents(events, encodeRetrievalEvents)
+func NewRetrievalEventsStream(events []RetrievalEvents) (*streaming.Event[RetrievalEvents], error) {
+	return streaming.NewEventFromValues(events, encodeRetrievalEvents)
 }
 
 // NewUnnamedEventsStream builds a producer SSE stream of UnnamedEvents for fake servers.
-func NewUnnamedEventsStream(events []UnnamedEvents) (*EventStream[UnnamedEvents], error) {
-	return newEventStreamFromEvents(events, encodeUnnamedEvents)
+func NewUnnamedEventsStream(events []UnnamedEvents) (*streaming.Event[UnnamedEvents], error) {
+	return streaming.NewEventFromValues(events, encodeUnnamedEvents)
 }

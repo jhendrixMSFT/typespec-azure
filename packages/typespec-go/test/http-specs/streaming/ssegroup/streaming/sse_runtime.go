@@ -1,16 +1,15 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-// This file is a PROTOTYPE of the runtime support that would live in
-// github.com/Azure/azure-sdk-for-go/sdk/azcore (e.g. an "azcore/streaming"
-// sub-package, surfaced through "runtime"). It is hand-written here to validate
-// the Server-Sent Events (SSE) codegen design before promoting it to azcore.
+// Package streaming is a PROTOTYPE of the runtime support that would live in
+// github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming. It is hand-written
+// here to validate the Server-Sent Events (SSE) codegen design before promoting
+// it to azcore, where its types will be referenced as e.g. streaming.Event[T].
 //
 // Public surface area intentionally depends only on the Go standard library;
 // no third-party code is exposed. (Internal helpers may use 3rd-party modules
 // once promoted to azcore, but none are required here.)
-
-package ssegroup
+package streaming
 
 import (
 	"bufio"
@@ -22,10 +21,10 @@ import (
 	"strings"
 )
 
-// Event is a single Server-Sent Event frame parsed from a text/event-stream
+// Frame is a single Server-Sent Event frame parsed from a text/event-stream
 // body. It exposes only the wire-level SSE envelope; the strongly-typed payload
-// is produced by a generated per-stream decoder that consumes an Event.
-type Event struct {
+// is produced by a generated per-stream decoder that consumes a Frame.
+type Frame struct {
 	// Type is the value of the SSE "event" field. An empty value means the
 	// default "message" event type.
 	Type string
@@ -44,32 +43,32 @@ type Event struct {
 	Retry int
 }
 
-// EventStream provides typed, forward-only iteration over a Server-Sent Events
+// Event provides typed, forward-only iteration over a Server-Sent Events
 // response body. T is the generated event union for the operation.
 //
-// A stream returned by a client method is never nil. The zero value is a valid,
+// An Event returned by a client method is never nil. The zero value is a valid,
 // already-exhausted stream: iteration yields no events and Close is a no-op.
-type EventStream[T any] struct {
+type Event[T any] struct {
 	body    io.ReadCloser
 	scanner *sseScanner
-	decode  func(Event) (T, bool, error)
+	decode  func(Frame) (T, bool, error)
 	done    bool
 	lastID  string
 	retry   int
 
 	// producer mode (fakes/servers): pre-rendered wire frames to serialize.
-	frames []Event
+	frames []Frame
 }
 
-// NewEventStream wraps an SSE response body with a typed reader. decode maps a
-// wire-level Event to the typed union value; it returns terminal=true when the
+// NewEvent wraps an SSE response body with a typed reader. decode maps a
+// wire-level Frame to the typed union value; it returns terminal=true when the
 // event signals the end of the stream (e.g. an OpenAI-style "[DONE]" event).
-func NewEventStream[T any](body io.ReadCloser, decode func(evt Event) (value T, terminal bool, err error)) *EventStream[T] {
+func NewEvent[T any](body io.ReadCloser, decode func(frame Frame) (value T, terminal bool, err error)) *Event[T] {
 	sc := bufio.NewScanner(body)
 	sc.Split(scanSSELines)
 	// SSE payloads can carry large JSON documents; grow the buffer accordingly.
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	return &EventStream[T]{
+	return &Event[T]{
 		body:    body,
 		scanner: &sseScanner{scanner: sc},
 		decode:  decode,
@@ -77,32 +76,32 @@ func NewEventStream[T any](body io.ReadCloser, decode func(evt Event) (value T, 
 	}
 }
 
-// NewEventStreamFromFrames builds a producer EventStream from raw SSE frames,
-// giving full control over envelope metadata (id, event, retry, data). It is
-// intended for generated fake servers and test doubles.
-func NewEventStreamFromFrames[T any](frames []Event) *EventStream[T] {
-	return &EventStream[T]{frames: frames, retry: -1}
+// NewEventFromFrames builds a producer Event from raw SSE frames, giving full
+// control over envelope metadata (id, event, retry, data). It is intended for
+// generated fake servers and test doubles.
+func NewEventFromFrames[T any](frames []Frame) *Event[T] {
+	return &Event[T]{frames: frames, retry: -1}
 }
 
-// newEventStreamFromEvents builds a producer EventStream from typed values,
-// rendering each with the union's encoder. Envelope metadata is not expressible
-// through this path; use NewEventStreamFromFrames when id/retry are required.
-func newEventStreamFromEvents[T any](events []T, encode func(T) (Event, error)) (*EventStream[T], error) {
-	frames := make([]Event, 0, len(events))
-	for _, e := range events {
-		f, err := encode(e)
+// NewEventFromValues builds a producer Event from typed values, rendering each
+// with the union's encoder. Envelope metadata is not expressible through this
+// path; use NewEventFromFrames when id/retry are required.
+func NewEventFromValues[T any](values []T, encode func(T) (Frame, error)) (*Event[T], error) {
+	frames := make([]Frame, 0, len(values))
+	for _, v := range values {
+		f, err := encode(v)
 		if err != nil {
 			return nil, err
 		}
 		frames = append(frames, f)
 	}
-	return &EventStream[T]{frames: frames, retry: -1}, nil
+	return &Event[T]{frames: frames, retry: -1}, nil
 }
 
-// MarshalEventStream renders a producer EventStream's frames to the SSE wire
-// format. It is used by generated fake servers to reply with a text/event-stream
-// body. A nil stream renders an empty body.
-func MarshalEventStream[T any](s *EventStream[T]) (io.ReadCloser, error) {
+// MarshalEvent renders a producer Event's frames to the SSE wire format. It is
+// used by generated fake servers to reply with a text/event-stream body. A nil
+// Event renders an empty body.
+func MarshalEvent[T any](s *Event[T]) (io.ReadCloser, error) {
 	var buf bytes.Buffer
 	if s != nil {
 		for _, f := range s.frames {
@@ -112,7 +111,7 @@ func MarshalEventStream[T any](s *EventStream[T]) (io.ReadCloser, error) {
 	return io.NopCloser(&buf), nil
 }
 
-func writeSSEFrame(buf *bytes.Buffer, f Event) {
+func writeSSEFrame(buf *bytes.Buffer, f Frame) {
 	if f.ID != "" {
 		buf.WriteString("id: ")
 		buf.WriteString(f.ID)
@@ -139,24 +138,24 @@ func writeSSEFrame(buf *bytes.Buffer, f Event) {
 
 // Next returns the next typed event in the stream. It returns io.EOF when the
 // stream is complete, including when a terminal event is reached.
-func (s *EventStream[T]) Next() (T, error) {
+func (s *Event[T]) Next() (T, error) {
 	var zero T
 	// a nil scanner is an empty (or producer-only) stream: nothing to consume.
 	if s.done || s.scanner == nil {
 		return zero, io.EOF
 	}
-	ev, err := s.scanner.next()
+	frame, err := s.scanner.next()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			s.done = true
 		}
 		return zero, err
 	}
-	s.lastID = ev.ID
-	if ev.Retry >= 0 {
-		s.retry = ev.Retry
+	s.lastID = frame.ID
+	if frame.Retry >= 0 {
+		s.retry = frame.Retry
 	}
-	value, terminal, derr := s.decode(ev)
+	value, terminal, derr := s.decode(frame)
 	if derr != nil {
 		return zero, derr
 	}
@@ -169,7 +168,7 @@ func (s *EventStream[T]) Next() (T, error) {
 
 // Events returns a range-over-func iterator over the stream. Iteration ends at
 // end of stream (io.EOF is not yielded) or after the first error is yielded.
-func (s *EventStream[T]) Events() iter.Seq2[T, error] {
+func (s *Event[T]) Events() iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		for {
 			value, err := s.Next()
@@ -188,43 +187,43 @@ func (s *EventStream[T]) Events() iter.Seq2[T, error] {
 
 // LastEventID returns the id of the most recently received event. On reconnect
 // this value is sent in the Last-Event-ID request header.
-func (s *EventStream[T]) LastEventID() string { return s.lastID }
+func (s *Event[T]) LastEventID() string { return s.lastID }
 
 // RetryAfter returns the most recent server-suggested reconnection delay in
 // milliseconds, or -1 if the server never sent a valid retry field.
-func (s *EventStream[T]) RetryAfter() int { return s.retry }
+func (s *Event[T]) RetryAfter() int { return s.retry }
 
 // Close closes the underlying response body, if any.
-func (s *EventStream[T]) Close() error {
+func (s *Event[T]) Close() error {
 	if s.body == nil {
 		return nil
 	}
 	return s.body.Close()
 }
 
-// sseScanner turns a stream of SSE lines into discrete Event frames following
+// sseScanner turns a stream of SSE lines into discrete Frame values following
 // the WHATWG event stream parsing rules.
 type sseScanner struct {
 	scanner *bufio.Scanner
 	lastID  string
 }
 
-func (s *sseScanner) next() (Event, error) {
+func (s *sseScanner) next() (Frame, error) {
 	var (
-		ev       Event
+		frame    Frame
 		dataBuf  bytes.Buffer
 		haveData bool
 		haveAny  bool
 	)
-	ev.Retry = -1
-	ev.ID = s.lastID
+	frame.Retry = -1
+	frame.ID = s.lastID
 	for s.scanner.Scan() {
 		line := s.scanner.Text()
 		if line == "" {
 			if !haveAny {
 				continue // ignore leading blank lines between events
 			}
-			return finishEvent(&ev, &dataBuf, haveData), nil
+			return finishFrame(&frame, &dataBuf, haveData), nil
 		}
 		haveAny = true
 		if strings.HasPrefix(line, ":") {
@@ -233,43 +232,43 @@ func (s *sseScanner) next() (Event, error) {
 		field, value := splitSSEField(line)
 		switch field {
 		case "event":
-			ev.Type = value
+			frame.Type = value
 		case "data":
 			dataBuf.WriteString(value)
 			dataBuf.WriteByte('\n')
 			haveData = true
 		case "id":
 			if !strings.ContainsRune(value, 0) { // ignore ids containing U+0000 NULL
-				ev.ID = value
+				frame.ID = value
 				s.lastID = value
 			}
 		case "retry":
 			if isASCIIDigits(value) {
 				if n, err := strconv.Atoi(value); err == nil {
-					ev.Retry = n
+					frame.Retry = n
 				}
 			}
 		}
 	}
 	if err := s.scanner.Err(); err != nil {
-		return Event{}, err
+		return Frame{}, err
 	}
 	// EOF: dispatch a final event when the body ended without a trailing blank line.
 	if haveAny {
-		return finishEvent(&ev, &dataBuf, haveData), nil
+		return finishFrame(&frame, &dataBuf, haveData), nil
 	}
-	return Event{}, io.EOF
+	return Frame{}, io.EOF
 }
 
-func finishEvent(ev *Event, dataBuf *bytes.Buffer, haveData bool) Event {
+func finishFrame(frame *Frame, dataBuf *bytes.Buffer, haveData bool) Frame {
 	if haveData {
 		d := dataBuf.Bytes()
 		if n := len(d); n > 0 && d[n-1] == '\n' {
 			d = d[:n-1] // strip the single trailing newline added during accumulation
 		}
-		ev.Data = append([]byte(nil), d...)
+		frame.Data = append([]byte(nil), d...)
 	}
-	return *ev
+	return *frame
 }
 
 func splitSSEField(line string) (field, value string) {
