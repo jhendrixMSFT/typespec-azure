@@ -21,24 +21,39 @@ type SseNamedClient struct {
 	endpoint string
 }
 
-// Receive -
+// NewReceiveEventStream opens the Receive Server-Sent Events stream. The initial
+// connection is established before returning; an unexpected mid-stream
+// disconnect is transparently reconnected via the Last-Event-ID header.
 // If the operation fails it returns an *azcore.ResponseError type.
 //   - options - SseNamedClientReceiveOptions contains the optional parameters for the SseNamedClient.Receive method.
-func (client *SseNamedClient) Receive(ctx context.Context, options *SseNamedClientReceiveOptions) (SseNamedClientReceiveResponse, error) {
-	var err error
-	const operationName = "SseNamedClient.Receive"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.receiveCreateRequest(ctx, options)
-	if err != nil {
-		return SseNamedClientReceiveResponse{}, err
+func (client *SseNamedClient) NewReceiveEventStream(ctx context.Context, options *SseNamedClientReceiveOptions) (*streaming.Event[ResponseEvents], error) {
+	return streaming.NewEvent(ctx, streaming.EventStreamHandler[ResponseEvents]{
+		Decode:    decodeResponseEvents,
+		Connect:   client.receiveConnect(options),
+		Reconnect: true,
+	})
+}
+
+// receiveConnect returns the connection factory for the Receive stream.
+func (client *SseNamedClient) receiveConnect(options *SseNamedClientReceiveOptions) func(context.Context, string) (*http.Response, error) {
+	return func(ctx context.Context, lastEventID string) (*http.Response, error) {
+		ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseNamedClient.Receive")
+		req, err := client.receiveCreateRequest(ctx, options)
+		if err != nil {
+			return nil, err
+		}
+		if lastEventID != "" {
+			req.Raw().Header.Set("Last-Event-ID", lastEventID)
+		}
+		resp, err := client.internal.Pipeline().Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if !runtime.HasStatusCode(resp, http.StatusOK) {
+			return nil, runtime.NewResponseError(resp)
+		}
+		return resp, nil
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return SseNamedClientReceiveResponse{}, err
-	}
-	return client.receiveHandleResponse(httpResp, http.StatusOK)
 }
 
 // receiveCreateRequest creates the Receive request.
@@ -51,14 +66,4 @@ func (client *SseNamedClient) receiveCreateRequest(ctx context.Context, _ *SseNa
 	runtime.SkipBodyDownload(req)
 	req.Raw().Header["Accept"] = []string{"text/event-stream"}
 	return req, nil
-}
-
-// receiveHandleResponse handles the Receive response.
-func (client *SseNamedClient) receiveHandleResponse(resp *http.Response, successCodes ...int) (SseNamedClientReceiveResponse, error) {
-	result := SseNamedClientReceiveResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	result.Stream = streaming.NewEvent(resp.Body, decodeResponseEvents)
-	return result, nil
 }

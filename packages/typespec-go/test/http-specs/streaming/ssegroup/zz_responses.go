@@ -6,13 +6,6 @@ package ssegroup
 
 import "github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 
-// SseNamedClientReceiveResponse contains the response from method SseNamedClient.Receive.
-type SseNamedClientReceiveResponse struct {
-	// Stream is the typed reader for the response's Server-Sent Events. It is
-	// never nil; an empty stream simply yields no events.
-	Stream *streaming.Event[ResponseEvents]
-}
-
 // SseProtocolClientIDResponse contains the response from method SseProtocolClient.ID.
 type SseProtocolClientIDResponse struct {
 	// Stream is the typed reader for the response's Server-Sent Events. It is

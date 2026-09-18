@@ -40,12 +40,12 @@ func TestFakeSseNamedReceive(t *testing.T) {
 		},
 	}
 
-	resp, err := newFakeSseClient(t, srv).NewSseNamedClient().Receive(context.Background(), nil)
+	stream, err := newFakeSseClient(t, srv).NewSseNamedClient().NewReceiveEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 2)
 	require.Equal(t, "resp_1", *events[0].ResponseCreated.ID)
 	require.Equal(t, "Hello", *events[1].ResponseDelta.Delta)
@@ -62,12 +62,12 @@ func TestFakeSseUnnamedReceive(t *testing.T) {
 		},
 	}
 
-	resp, err := newFakeSseClient(t, srv).NewSseUnnamedClient().Receive(context.Background(), nil)
+	stream, err := newFakeSseClient(t, srv).NewSseUnnamedClient().NewReceiveEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 2)
 	require.Equal(t, "one", *events[0].Info.Desc)
 	require.Equal(t, "two", *events[1].Info.Desc)
@@ -83,17 +83,19 @@ func TestFakeSseRetrieveStream(t *testing.T) {
 				}
 				resp.AddEvent(ssegroup.RetrievalEvents{PartialResult: &ssegroup.PartialResult{Text: to.Ptr("partial one")}})
 				resp.AddEvent(ssegroup.RetrievalEvents{FinalResult: &ssegroup.FinalResult{References: []*string{to.Ptr("doc1"), to.Ptr("doc2")}}})
+				// the terminal [DONE] event ends the stream and is not surfaced
+				resp.AddEvent(ssegroup.RetrievalEvents{LiteralString: to.Ptr("[DONE]")})
 				return
 			},
 		},
 	}
 
-	resp, err := newFakeSseClient(t, srv).NewSseRetrieveClient().Stream(context.Background(), ssegroup.RetrievalRequest{Query: to.Ptr("what is typespec?")}, nil)
+	stream, err := newFakeSseClient(t, srv).NewSseRetrieveClient().NewStreamEventStream(context.Background(), ssegroup.RetrievalRequest{Query: to.Ptr("what is typespec?")}, nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Equal(t, "what is typespec?", gotQuery)
 	require.Len(t, events, 2)
 	require.Equal(t, "partial one", *events[0].PartialResult.Text)
@@ -111,13 +113,13 @@ func TestFakeSseProtocolIDWithEnvelopeMetadata(t *testing.T) {
 		},
 	}
 
-	resp, err := newFakeSseClient(t, srv).NewSseProtocolClient().ID(context.Background(), nil)
+	stream, err := newFakeSseClient(t, srv).NewSseProtocolClient().NewIDEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
-	require.Equal(t, "event-1", resp.Stream.LastEventID())
+	require.Equal(t, "event-1", stream.LastEventID())
 }

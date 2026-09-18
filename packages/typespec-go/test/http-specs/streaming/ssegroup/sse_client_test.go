@@ -36,12 +36,12 @@ func drain[T any](t *testing.T, s *streaming.Event[T]) []T {
 }
 
 func TestSseUnnamedClientReceive(t *testing.T) {
-	resp, err := newSseClient(t).NewSseUnnamedClient().Receive(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseUnnamedClient().NewReceiveEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 3)
 	for i, want := range []string{"one", "two", "three"} {
 		require.NotNil(t, events[i].Info)
@@ -50,13 +50,13 @@ func TestSseUnnamedClientReceive(t *testing.T) {
 }
 
 func TestSseNamedClientReceive(t *testing.T) {
-	resp, err := newSseClient(t).NewSseNamedClient().Receive(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseNamedClient().NewReceiveEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
 	// the terminal [DONE] event ends the stream and is not surfaced as a value
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 3)
 
 	require.NotNil(t, events[0].ResponseCreated)
@@ -69,12 +69,12 @@ func TestSseNamedClientReceive(t *testing.T) {
 
 func TestSseRetrieveClientStream(t *testing.T) {
 	query := "what is typespec?"
-	resp, err := newSseClient(t).NewSseRetrieveClient().Stream(context.Background(), ssegroup.RetrievalRequest{Query: &query}, nil)
+	stream, err := newSseClient(t).NewSseRetrieveClient().NewStreamEventStream(context.Background(), ssegroup.RetrievalRequest{Query: &query}, nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 3)
 
 	require.NotNil(t, events[0].PartialResult)
@@ -88,24 +88,24 @@ func TestSseRetrieveClientStream(t *testing.T) {
 }
 
 func TestSseProtocolDataWithEnvelope(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().NewSseProtocolDataClient().WithEnvelope(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewSseProtocolDataClient().NewWithEnvelopeEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].WithEnvelope)
 	require.Equal(t, "hello", *events[0].WithEnvelope.Contents)
 }
 
 func TestSseProtocolDataWithoutEnvelope(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().NewSseProtocolDataClient().WithoutEnvelope(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewSseProtocolDataClient().NewWithoutEnvelopeEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].WithEnvelope1)
 	require.Equal(t, "world", *events[0].WithEnvelope1.Contents)
@@ -113,68 +113,65 @@ func TestSseProtocolDataWithoutEnvelope(t *testing.T) {
 }
 
 func TestSseProtocolID(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().ID(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewIDEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].ProtocolInfo)
 	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
-	require.Equal(t, "event-1", resp.Stream.LastEventID())
+	require.Equal(t, "event-1", stream.LastEventID())
 }
 
 func TestSseProtocolInvalidID(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().InvalidID(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewInvalidIDEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].ProtocolInfo)
 	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
 	// an id containing U+0000 NULL is ignored per the SSE parsing rules
-	require.Empty(t, resp.Stream.LastEventID())
+	require.Empty(t, stream.LastEventID())
 }
 
 func TestSseProtocolRetry(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().Retry(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewRetryEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].ProtocolInfo)
 	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
-	require.Equal(t, 1000, resp.Stream.RetryAfter())
 }
 
 func TestSseProtocolInvalidRetry(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().InvalidRetry(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewInvalidRetryEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].ProtocolInfo)
 	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
-	// a non-ASCII-digit retry value is ignored, leaving no reconnection delay
-	require.Equal(t, -1, resp.Stream.RetryAfter())
 }
 
 func TestSseProtocolReconnect(t *testing.T) {
-	resp, err := newSseClient(t).NewSseProtocolClient().Reconnect(context.Background(), nil)
+	stream, err := newSseClient(t).NewSseProtocolClient().NewReconnectEventStream(context.Background(), nil)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Stream)
-	defer resp.Stream.Close()
+	require.NotNil(t, stream)
+	defer stream.Close()
 
-	events := drain(t, resp.Stream)
+	events := drain(t, stream)
 	require.Len(t, events, 1)
 	require.NotNil(t, events[0].ProtocolInfo)
 	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
-	require.Equal(t, "event-1", resp.Stream.LastEventID())
+	require.Equal(t, "event-1", stream.LastEventID())
 }

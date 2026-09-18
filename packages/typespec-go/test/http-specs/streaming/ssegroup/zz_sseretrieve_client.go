@@ -21,24 +21,39 @@ type SseRetrieveClient struct {
 	endpoint string
 }
 
-// Stream -
+// NewStreamEventStream opens the Stream Server-Sent Events stream. The initial
+// connection is established before returning; an unexpected mid-stream
+// disconnect is transparently reconnected via the Last-Event-ID header.
 // If the operation fails it returns an *azcore.ResponseError type.
 //   - options - SseRetrieveClientStreamOptions contains the optional parameters for the SseRetrieveClient.Stream method.
-func (client *SseRetrieveClient) Stream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientStreamOptions) (SseRetrieveClientStreamResponse, error) {
-	var err error
-	const operationName = "SseRetrieveClient.Stream"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.streamCreateRequest(ctx, request, options)
-	if err != nil {
-		return SseRetrieveClientStreamResponse{}, err
+func (client *SseRetrieveClient) NewStreamEventStream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientStreamOptions) (*streaming.Event[RetrievalEvents], error) {
+	return streaming.NewEvent(ctx, streaming.EventStreamHandler[RetrievalEvents]{
+		Decode:    decodeRetrievalEvents,
+		Connect:   client.streamConnect(request, options),
+		Reconnect: true,
+	})
+}
+
+// streamConnect returns the connection factory for the Stream stream.
+func (client *SseRetrieveClient) streamConnect(request RetrievalRequest, options *SseRetrieveClientStreamOptions) func(context.Context, string) (*http.Response, error) {
+	return func(ctx context.Context, lastEventID string) (*http.Response, error) {
+		ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseRetrieveClient.Stream")
+		req, err := client.streamCreateRequest(ctx, request, options)
+		if err != nil {
+			return nil, err
+		}
+		if lastEventID != "" {
+			req.Raw().Header.Set("Last-Event-ID", lastEventID)
+		}
+		resp, err := client.internal.Pipeline().Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if !runtime.HasStatusCode(resp, http.StatusOK) {
+			return nil, runtime.NewResponseError(resp)
+		}
+		return resp, nil
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return SseRetrieveClientStreamResponse{}, err
-	}
-	return client.streamHandleResponse(httpResp, http.StatusOK)
 }
 
 // streamCreateRequest creates the Stream request.
@@ -55,14 +70,4 @@ func (client *SseRetrieveClient) streamCreateRequest(ctx context.Context, reques
 		return nil, err
 	}
 	return req, nil
-}
-
-// streamHandleResponse handles the Stream response.
-func (client *SseRetrieveClient) streamHandleResponse(resp *http.Response, successCodes ...int) (SseRetrieveClientStreamResponse, error) {
-	result := SseRetrieveClientStreamResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	result.Stream = streaming.NewEvent(resp.Body, decodeRetrievalEvents)
-	return result, nil
 }
