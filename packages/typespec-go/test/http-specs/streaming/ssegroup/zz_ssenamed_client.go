@@ -55,6 +55,7 @@ func (client *SseNamedClient) OpenReceive(ctx context.Context, options *SseNamed
 	if err != nil {
 		return SseNamedClientReceiveResponse{}, err
 	}
+	// TODO: response headers would go here
 	return SseNamedClientReceiveResponse{Stream: reader}, nil
 }
 
