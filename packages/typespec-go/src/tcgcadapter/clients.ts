@@ -609,15 +609,25 @@ export class ClientAdapter {
       | undefined;
     switch (sdkMethod.kind) {
       case "basic":
-        // TODO: streaming
-        method = new go.SyncMethod(
-          methodName,
-          goClient,
-          sdkMethod.operation.path,
-          sdkMethod.operation.verb,
-          statusCodes,
-          naming,
-        );
+        if (sdkMethod.response.sseMetadata) {
+          method = new go.SseMethod(
+            methodName,
+            goClient,
+            sdkMethod.operation.path,
+            sdkMethod.operation.verb,
+            statusCodes,
+            naming,
+          );
+        } else {
+          method = new go.SyncMethod(
+            methodName,
+            goClient,
+            sdkMethod.operation.path,
+            sdkMethod.operation.verb,
+            statusCodes,
+            naming,
+          );
+        }
         break;
       case "paging":
         method = new go.PageableMethod(
@@ -1693,12 +1703,16 @@ export class ClientAdapter {
     const unexport = sdkMethod.access === "internal";
     switch (sdkMethod.kind) {
       case "basic":
-        methodName = helpers.getEffectiveName(sdkMethod, unexport);
-        if (unexport) {
-          // we add internal to the extra list so we don't end up with a method named "internal"
-          // which will collide with an unexported field with the same name. we don't need to
-          // do this for pagers/pollers as those methods get extra naming.
-          methodName = getEscapedReservedName(methodName, "Method", ["internal"]);
+        if (sdkMethod.response.sseMetadata) {
+          methodName = `${unexport ? "open" : "Open"}${helpers.getEffectiveName(sdkMethod, false)}`;
+        } else {
+          methodName = helpers.getEffectiveName(sdkMethod, unexport);
+          if (unexport) {
+            // we add internal to the extra list so we don't end up with a method named "internal"
+            // which will collide with an unexported field with the same name. we don't need to
+            // do this for pagers/pollers/sse as those methods get extra naming.
+            methodName = getEscapedReservedName(methodName, "Method", ["internal"]);
+          }
         }
         break;
       case "lro":
@@ -1708,8 +1722,6 @@ export class ClientAdapter {
       case "paging":
         methodName = `${unexport ? "new" : "New"}${helpers.getEffectiveName(sdkMethod, false)}Pager`;
         break;
-      case "sseMethod":
-        methodName = `Open${method.name}`;
     }
 
     return methodName;
