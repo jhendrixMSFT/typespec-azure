@@ -183,11 +183,15 @@ export function generateOperations(
         // generate Begin method
         opText += generateLROBeginMethod(method, options, imports, indent);
       }
+
       opText += generateOperation(method, options, imports, indent);
+
+      if (method.kind === "sseMethod") {
+        opText += generateSseOperation(method, options, imports, indent);
+      }
+
       opText += createRequestHandler(azureARM, method, imports, indent);
-      if (needsResponseHandler(method) && method.kind !== "lroMethod") {
-        // we don't emit the response handler for vanilla LROs as the Poller[T]
-        // handles that. we do need it for pageable LROs though.
+      if (method.kind !== "lroMethod" && method.kind !== "sseMethod" && needsResponseHandler(method)) {
         opText += createResponseHandler(method, imports, indent);
       }
       if (
@@ -722,6 +726,24 @@ function emitPagerDefinition(
   return text;
 }
 
+function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpers.Indentation): string {
+  // TODO: params
+  let body = `${indent.get()}resp, err := client.${method.naming.operationMethod}(ctx, "", options)\n`;
+  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+  imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
+  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${}]{\n`;
+  body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
+  body += `${indent.push().get()}return client.${method.naming.operationMethod}(ctx, lastEventID, options)\n`;
+  body += `${indent.pop().get()}},\n`;
+  body += `${indent.get()}Decode: decodeResponseEvents,\n`; // TODO: hard-coded decodeResponseEvents
+  body += `${indent.get()}Reconnect: true,\n`;
+  body += `${indent.pop().get()}}, nil)\n`;
+  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+  // TODO: response headers
+  body += `${indent.get()}return ${method.returns.name}{Stream: reader}, nil\n`;
+  return body;
+}
+
 function genRespErrorDoc(method: go.MethodType): string {
   if (!(method.returns.result?.kind === "headAsBooleanResult") && !go.isPageableMethod(method)) {
     // when head-as-boolean is enabled, no error is returned for 4xx status codes.
@@ -750,12 +772,14 @@ function generateOperation(
     // existing behavior and makes the docs look better overall.
     text += `// ${methodName} -\n`;
   }
+
   text += respErrDoc;
   if (!go.isLROMethod(method)) {
     for (const param of helpers.getMethodParameters(method)) {
       text += helpers.formatCommentAsBulletItem(param.name, param.docs);
     }
   }
+
   text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${methodName}(${params}) (${returns.join(", ")}) {\n`;
   if (method.kind === "pageableMethod") {
     text += `${indent.get()}return `;
@@ -763,18 +787,13 @@ function generateOperation(
     text += "}\n\n";
     return text;
   }
+
   text += `${indent.get()}var err error\n`;
-  let operationName = `"${method.receiver.type.name}.${method.name}"`;
-  if (options["generate-fakes"] && options["inject-spans"]) {
-    text += `${indent.get()}const operationName = ${operationName}\n`;
-    operationName = "operationName";
-  }
-  if (options["generate-fakes"]) {
-    text += `${indent.get()}ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, ${operationName})\n`;
-  }
-  if (options["inject-spans"]) {
-    text += `${indent.get()}ctx, endSpan := runtime.StartSpan(ctx, ${operationName}, client.internal.Tracer(), nil)\n`;
-    text += `${indent.get()}defer func() { endSpan(err) }()\n`;
+  text += emitFakeAndSpanSupport(method, options, indent);
+
+  if (method.kind === "sseMethod") {
+    text += emitSseBody(method, imports, indent);
+    return text;
   }
 
   const reqParams = helpers.getCreateRequestParameters(
@@ -829,9 +848,35 @@ function generateOperation(
   return text;
 }
 
-// returns true if the method requires a response handler.
-// this is used to unmarshal the response body, parse response headers, or both.
+function emitFakeAndSpanSupport(method: go.MethodType, options: go.Options, indent: helpers.Indentation): string {
+  let text = "";
+  let operationName = `"${method.receiver.type.name}.${method.name}"`;
+  if (options["generate-fakes"] && options["inject-spans"]) {
+    text += `${indent.get()}const operationName = ${operationName}\n`;
+    operationName = "operationName";
+  }
+  if (options["generate-fakes"]) {
+    text += `${indent.get()}ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, ${operationName})\n`;
+  }
+  if (options["inject-spans"]) {
+    text += `${indent.get()}ctx, endSpan := runtime.StartSpan(ctx, ${operationName}, client.internal.Tracer(), nil)\n`;
+    text += `${indent.get()}defer func() { endSpan(err) }()\n`;
+  }
+  return text;
+}
+
+/**
+ * narrows method to an applicable method kind that requires a response handler
+ * within the control block. note that some method kinds never require one.
+ *
+ * @param method the method to inspect
+ * @returns true if the method requires a response handler
+ */
 function needsResponseHandler(method: go.MethodType): boolean {
+  if (method.kind === "lroMethod" || method.kind === "sseMethod") {
+    return false;
+  }
+
   switch (method.returns.result?.kind) {
     case "anyResult":
     case "modelResult":
@@ -907,6 +952,8 @@ function generateReturnsInfo(method: go.MethodType, apiType: "api" | "op"): Arra
     case "pageableMethod":
       // pager operations don't return an error
       return [`*runtime.Pager[${returnType}]`];
+    case "sseMethod":
+      returnType = "*http.Response";
   }
   return [returnType, "error"];
 }
@@ -1039,4 +1086,13 @@ function generateLROBeginMethod(
 
   text += "}\n\n";
   return text;
+}
+
+function generateSseOperation(
+  method: go.SseMethod,
+  options: go.Options,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
+
 }
