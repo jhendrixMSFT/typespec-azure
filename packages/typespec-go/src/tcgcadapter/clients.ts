@@ -609,6 +609,7 @@ export class ClientAdapter {
       | undefined;
     switch (sdkMethod.kind) {
       case "basic":
+        // TODO: streaming
         method = new go.SyncMethod(
           methodName,
           goClient,
@@ -1707,6 +1708,8 @@ export class ClientAdapter {
       case "paging":
         methodName = `${unexport ? "new" : "New"}${helpers.getEffectiveName(sdkMethod, false)}Pager`;
         break;
+      case "sseMethod":
+        methodName = `Open${method.name}`;
     }
 
     return methodName;
