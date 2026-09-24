@@ -639,6 +639,7 @@ export function getResultFieldName(method: go.MethodType): string {
     case "binaryResult":
     case "headAsBooleanResult":
     case "monomorphicResult":
+    case "sseResult":
       return result.fieldName;
     case "modelResult":
     case "polymorphicResult":
