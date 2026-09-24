@@ -114,6 +114,11 @@ export function generateServers(pkg: go.FakePackage, target: go.CodeModelType): 
         case "pageableMethod":
           serverResponse = `resp azfake.PagerResponder[${go.getTypeDeclaration(method.returns, pkg)}]`;
           break;
+        case "sseMethod":
+          if (!method.returns.result || method.returns.result.kind !== "modelResult") {
+            throw new Error("todo");
+          }
+          serverResponse = `resp azfake.SSEResponder[${go.getTypeDeclaration(method.returns.result.modelType, pkg)}], errResp azfake.ErrorResponder`;
       }
 
       const operationName = method.name;
@@ -573,6 +578,10 @@ function generateServerTransportMethods(
       }
       case "pageableMethod":
         content += dispatchForPagerBody(pkg, receiverName, method, imports, indent);
+        break;
+      case "sseMethod":
+        imports.add("errors");
+        content += `return nil, errors.New("NYI")\n`;
         break;
       default:
         method satisfies never;

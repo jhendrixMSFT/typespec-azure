@@ -187,7 +187,7 @@ export function generateOperations(
       opText += generateOperation(method, options, imports, indent);
 
       if (method.kind === "sseMethod") {
-        opText += generateSseOperation(method, options, imports, indent);
+        opText += generateSseOperation(method, imports, indent);
       }
 
       opText += createRequestHandler(azureARM, method, imports, indent);
@@ -726,24 +726,6 @@ function emitPagerDefinition(
   return text;
 }
 
-function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpers.Indentation): string {
-  // TODO: params
-  let body = `${indent.get()}resp, err := client.${method.naming.operationMethod}(ctx, "", options)\n`;
-  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
-  imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
-  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${}]{\n`;
-  body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
-  body += `${indent.push().get()}return client.${method.naming.operationMethod}(ctx, lastEventID, options)\n`;
-  body += `${indent.pop().get()}},\n`;
-  body += `${indent.get()}Decode: decodeResponseEvents,\n`; // TODO: hard-coded decodeResponseEvents
-  body += `${indent.get()}Reconnect: true,\n`;
-  body += `${indent.pop().get()}}, nil)\n`;
-  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
-  // TODO: response headers
-  body += `${indent.get()}return ${method.returns.name}{Stream: reader}, nil\n`;
-  return body;
-}
-
 function genRespErrorDoc(method: go.MethodType): string {
   if (!(method.returns.result?.kind === "headAsBooleanResult") && !go.isPageableMethod(method)) {
     // when head-as-boolean is enabled, no error is returned for 4xx status codes.
@@ -900,7 +882,7 @@ function getAPIParametersSig(
   method: go.ClientAccessor | go.MethodType,
   imports: ImportManager,
 ): string {
-  const params = new Array<string>();
+  let params = new Array<string>();
   if (method.kind === "clientAccessor") {
     // client accessor params don't have a concept
     // of optionality nor do they contain literals
@@ -909,21 +891,27 @@ function getAPIParametersSig(
       params.push(`${param.name} ${go.getTypeDeclaration(param.type, method.receiver.type.pkg)}`);
     }
   } else {
-    const methodParams = helpers.getMethodParameters(method);
-    if (method.kind !== "pageableMethod") {
-      imports.add("context");
-      params.push("ctx context.Context");
-    }
-    for (const methodParam of methodParams) {
-      if (methodParam.kind !== "paramGroup") {
-        imports.addForType(methodParam.type);
-      }
-      params.push(
-        `${methodParam.name} ${helpers.formatParameterTypeName(method.receiver.type.pkg, methodParam)}`,
-      );
-    }
+    params = getAPIParameters(method, imports);
   }
   return params.join(", ");
+}
+
+function getAPIParameters(method: go.MethodType, imports: ImportManager): Array<string> {
+  const params = new Array<string>();
+  const methodParams = helpers.getMethodParameters(method);
+  if (method.kind !== "pageableMethod") {
+    imports.add("context");
+    params.push("ctx context.Context");
+  }
+  for (const methodParam of methodParams) {
+    if (methodParam.kind !== "paramGroup") {
+      imports.addForType(methodParam.type);
+    }
+    params.push(
+      `${methodParam.name} ${helpers.formatParameterTypeName(method.receiver.type.pkg, methodParam)}`,
+    );
+  }
+  return params;
 }
 
 // returns the return signature where each entry is the type name
@@ -953,7 +941,9 @@ function generateReturnsInfo(method: go.MethodType, apiType: "api" | "op"): Arra
       // pager operations don't return an error
       return [`*runtime.Pager[${returnType}]`];
     case "sseMethod":
-      returnType = "*http.Response";
+      if (apiType === "op") {
+        returnType = "*http.Response";
+      }
   }
   return [returnType, "error"];
 }
@@ -1088,11 +1078,61 @@ function generateLROBeginMethod(
   return text;
 }
 
+function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpers.Indentation): string {
+  const params = new Array<string>();
+  for (const param of helpers.getMethodParameters(method)) {
+    params.push(param.name);
+  }
+  params.splice(-1, 0, `""`);
+
+  let body = `${indent.get()}resp, err := client.${method.naming.operationMethod}(${params.join(", ")})\n`;
+  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+  imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
+  if (!method.returns.result || method.returns.result.kind !== "modelResult") {
+    throw new Error("missing result");
+  }
+  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.modelType, method.receiver.type.pkg)}]{\n`;
+  body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
+  body += `${indent.push().get()}return client.${method.naming.operationMethod}(ctx, lastEventID, options)\n`;
+  body += `${indent.pop().get()}},\n`;
+  body += `${indent.get()}Decode: decode${method.returns.result.modelType.name},\n`;
+  body += `${indent.get()}Reconnect: true,\n`;
+  body += `${indent.pop().get()}}, nil)\n`;
+  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+  // TODO: response headers
+  body += `${indent.get()}return ${method.returns.name}{Stream: reader}, nil\n`;
+  return body;
+}
+
 function generateSseOperation(
   method: go.SseMethod,
-  options: go.Options,
   imports: ImportManager,
   indent: helpers.Indentation,
 ): string {
+  const params = getAPIParameters(method, imports);
+  params.splice(-1, 0, "lastEventID string");
 
+  let text = `// ${method.naming.operationMethod} opens a connection for the ${method.name} stream.\n`;
+  text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (*http.Response, error) {\n`;
+
+  text += `${indent.get()}req, err := client.${method.naming.requestMethod}(${helpers.getCreateRequestParameters(method)})\n`;
+  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+
+  text += `${indent.get()}${helpers.buildIfBlock(indent, {
+    condition: `lastEventID != ""`,
+    body: (indent) => `${indent.get()}req.Raw().Header.Set("Last-Event-ID", lastEventID)\n`,
+  })}\n`;
+
+  text += `${indent.get()}httpResp, err := client.internal.Pipeline().Do(req)\n`;
+  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+
+  const zeroResp = getZeroReturnValue(method, false);
+  text += `${indent.get()}${helpers.buildIfBlock(indent, {
+    condition: `!runtime.HasStatusCode(httpResp, ${helpers.formatStatusCodes(method.httpStatusCodes)})`,
+    body: (indent) => `${indent.get()}return ${zeroResp}, runtime.NewResponseError(httpResp)\n`,
+  })}\n`;
+
+  text += `${indent.get()}return resp, nil\n`;
+  text += '}\n\n'; // end func
+  return text;
 }
