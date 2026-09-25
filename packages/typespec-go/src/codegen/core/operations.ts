@@ -775,6 +775,7 @@ function generateOperation(
 
   if (method.kind === "sseMethod") {
     text += emitSseBody(method, imports, indent);
+    text += "}\n\n";
     return text;
   }
 
@@ -1088,14 +1089,14 @@ function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpe
   let body = `${indent.get()}resp, err := client.${method.naming.operationMethod}(${params.join(", ")})\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
-  if (!method.returns.result || method.returns.result.kind !== "modelResult") {
+  if (!method.returns.result || method.returns.result.kind !== "sseResult") {
     throw new Error("missing result");
   }
-  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.modelType, method.receiver.type.pkg)}]{\n`;
+  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, ${go.getTypeDeclaration(method.returns.result.type, method.receiver.type.pkg)}{\n`;
   body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
   body += `${indent.push().get()}return client.${method.naming.operationMethod}(ctx, lastEventID, options)\n`;
   body += `${indent.pop().get()}},\n`;
-  body += `${indent.get()}Decode: decode${method.returns.result.modelType.name},\n`;
+  body += `${indent.get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
   body += `${indent.get()}Reconnect: true,\n`;
   body += `${indent.pop().get()}}, nil)\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
