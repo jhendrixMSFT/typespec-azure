@@ -112,6 +112,8 @@ export function createResponseHandler(
           indent,
         );
         break;
+      case "sseResult":
+        throw new CodegenError("InternalError", "SSE methods don't get respopnse handlers");
       default:
         result satisfies never;
     }

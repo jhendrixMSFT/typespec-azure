@@ -223,8 +223,8 @@ export interface SseResult {
   /** the name of the field within the response envelope */
   fieldName: string;
 
-  /** the union of possible events */
-  eventType: type.UnionStruct;
+  /** the result field type */
+  type: type.StreamingEventReader;
 
   /** any docs for the result */
   docs: type.Docs;
@@ -344,10 +344,10 @@ export class ResponseEnvelope implements ResponseEnvelope {
 }
 
 export class SseResult implements SseResult {
-  constructor(fieldName: string, eventType: type.UnionStruct) {
+  constructor(fieldName: string, type: type.StreamingEventReader) {
     this.kind = "sseResult";
     this.fieldName = fieldName;
-    this.eventType = eventType;
+    this.type = type;
     this.docs = {};
   }
 }

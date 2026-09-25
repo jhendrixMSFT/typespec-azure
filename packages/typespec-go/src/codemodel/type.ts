@@ -45,6 +45,7 @@ export type WireType =
   | Scalar
   | Slice
   | SliceArray
+  | StreamingEventReader
   | String
   | Time
   | UnionStruct;
@@ -396,6 +397,13 @@ export type SliceArrayElementType = SliceArrayElementWireType | Ptr<SliceArrayEl
 /** the set of slice array wire types */
 export type SliceArrayElementWireType = Constant | String;
 
+export interface StreamingEventReader extends QualifiedType {
+  kind: "streamingEventReader"
+
+  /** the union of possible events */
+  eventType: UnionStruct;
+}
+
 /** a Go string */
 export interface String {
   kind: "string";
@@ -596,9 +604,15 @@ export function getTypeDeclaration(
     case "readCloser":
     case "readSeekCloser":
     case "tokenCredential":
-      // strip module to just the leaf package as required
-      return `${byRef}${path.basename(type.module)}.${type.name}`;
+      return `${byRef}${getQualifiedTypeDecl(type)}`;
+    case "streamingEventReader":
+      return `*${getQualifiedTypeDecl(type)}[${getTypeDeclaration(type.eventType, scope)}]`;
   }
+}
+
+function getQualifiedTypeDecl(qualifiedType: QualifiedType): string {
+  // strip module to just the leaf package as required
+  return `${path.basename(qualifiedType.module)}.${qualifiedType.name}`;
 }
 
 /**
@@ -1020,6 +1034,14 @@ export class SliceArray implements SliceArray {
     this.kind = "sliceArray";
     this.itemType = itemType;
     this.delimiter = delimiter;
+  }
+}
+
+export class StreamingEventReader extends QualifiedType implements StreamingEventReader {
+  constructor(eventType: UnionStruct) {
+    super("EventReader", "github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
+    this.kind = "streamingEventReader";
+    this.eventType = eventType;
   }
 }
 
