@@ -115,10 +115,10 @@ export function generateServers(pkg: go.FakePackage, target: go.CodeModelType): 
           serverResponse = `resp azfake.PagerResponder[${go.getTypeDeclaration(method.returns, pkg)}]`;
           break;
         case "sseMethod":
-          if (!method.returns.result || method.returns.result.kind !== "modelResult") {
+          if (!method.returns.result || method.returns.result.kind !== "sseResult") {
             throw new Error("todo");
           }
-          serverResponse = `resp azfake.SSEResponder[${go.getTypeDeclaration(method.returns.result.modelType, pkg)}], errResp azfake.ErrorResponder`;
+          serverResponse = `resp azfake.SSEResponder[${go.getTypeDeclaration(method.returns.result.type.eventType, pkg)}], errResp azfake.ErrorResponder`;
       }
 
       const operationName = method.name;

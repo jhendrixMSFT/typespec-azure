@@ -2002,7 +2002,7 @@ export class ClientAdapter {
             `unexpected content type ${contentType} for union ${unionType.name}`,
           );
         }
-        respEnv.result = new go.SseResult("Stream", unionType);
+        respEnv.result = new go.SseResult("Stream", this.ta.getStreamingEventReader(unionType));
         respEnv.result.docs.summary = sdkResponseType.summary;
         respEnv.result.docs.description = sdkResponseType.doc;
       } else {
