@@ -1276,7 +1276,7 @@ export class TypeAdapter {
       return <go.UnionStruct>goUnion;
     }
 
-    goUnion = new go.UnionStruct(this.getPkg(), unionName);
+    goUnion = new go.UnionStruct(this.getPkg(), unionName, this.getUnionStructFlags(sdkUnion));
     for (const variant of sdkUnion.variantTypes) {
       const type = this.getWireType(variant, elementTypeByValue, false);
       if (!go.isUnionVariantType(type)) {
@@ -1305,6 +1305,41 @@ export class TypeAdapter {
 
     this.types.set(unionName, goUnion);
     return goUnion;
+  }
+
+  getUnionStructFlags(sdkUnion: tcgc.SdkUnionType): go.UnionStructFlags {
+    const noFlags = <go.UnionStructFlags>0;
+    let usageFlags: go.UnionStructFlags = noFlags;
+    const recursiveGetUnionStructFlags = function(sdkClient: tcgc.SdkClientType<tcgc.SdkHttpOperation>): void {
+      for (const sdkMethod of sdkClient.methods) {
+        if (sdkMethod.response.streamMetadata?.streamType === sdkUnion) {
+          usageFlags |= go.UnionStructFlags.SseType;
+        } else if (sdkMethod.response.type === sdkUnion) {
+          usageFlags |= go.UnionStructFlags.SumType;
+        }
+        for (const param of sdkMethod.parameters) {
+          if (param.type === sdkUnion) {
+            usageFlags |= go.UnionStructFlags.SumType;
+          }
+        }
+      }
+
+      if (sdkClient.children) {
+        for (const child of sdkClient.children) {
+          recursiveGetUnionStructFlags(child);
+        }
+      }
+    };
+
+    for (const sdkClient of this.ctx.sdkPackage.clients) {
+      recursiveGetUnionStructFlags(sdkClient);
+    }
+
+    if (usageFlags === noFlags) {
+      throw new Error("failed to find usage flags");
+    }
+
+    return usageFlags;
   }
 }
 
