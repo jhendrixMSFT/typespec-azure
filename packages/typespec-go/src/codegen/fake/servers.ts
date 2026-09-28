@@ -451,7 +451,6 @@ function generateServerTransportMethods(
   imports.addForPkg(pkg.parent);
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/fake", "azfake");
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server");
-  imports.add("slices");
 
   const receiverName = serverTransport[0].toLowerCase();
 
@@ -469,6 +468,7 @@ function generateServerTransportMethods(
         content += dispatchForLROBody(pkg, receiverName, method, imports, indent);
         break;
       case "method": {
+        imports.add("slices");
         content += dispatchForOperationBody(pkg, receiverName, method, imports, indent);
         content += `${indent.get()}respContent := server.GetResponseContent(respr)\n`;
         const formattedStatusCodes = helpers.formatStatusCodes(method.httpStatusCodes);
@@ -580,8 +580,7 @@ function generateServerTransportMethods(
         content += dispatchForPagerBody(pkg, receiverName, method, imports, indent);
         break;
       case "sseMethod":
-        imports.add("errors");
-        content += `return nil, errors.New("NYI")\n`;
+        content += dispatchForSseBody(pkg, receiverName, method, imports, indent);
         break;
       default:
         method satisfies never;
@@ -1073,6 +1072,7 @@ function dispatchForLROBody(
   content += `${indent.push().get()}return nil, err\n`;
   content += `${indent.pop().get()}}\n\n`;
 
+  imports.add("slices");
   const formattedStatusCodes = helpers.formatStatusCodes(getMethodStatusCodes(method));
   content += `${indent.get()}if !slices.Contains([]int{${formattedStatusCodes}}, resp.StatusCode) {\n`;
   indent.push();
@@ -1125,6 +1125,7 @@ function dispatchForPagerBody(
   content += `${indent.push().get()}return nil, err\n`;
   content += `${indent.pop().get()}}\n`;
 
+  imports.add("slices");
   const formattedStatusCodes = helpers.formatStatusCodes(method.httpStatusCodes);
   content += `${indent.get()}if !slices.Contains([]int{${formattedStatusCodes}}, resp.StatusCode) {\n`;
   indent.push();
@@ -1135,6 +1136,28 @@ function dispatchForPagerBody(
   content += `${indent.get()}if !server.PagerResponderMore(${localVarName}) {\n`;
   content += `${indent.push().get()}${operationStateMachine}.remove(req)\n`;
   content += `${indent.pop().get()}}\n`;
+  content += `${indent.get()}return resp, nil\n`;
+  return content;
+}
+
+function dispatchForSseBody(
+  pkg: go.FakePackage,
+  receiverName: string,
+  method: go.SseMethod,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
+  let content = dispatchForOperationBody(pkg, receiverName, method, imports, indent);
+  if (!method.returns.result || method.returns.result.kind !== "sseResult") {
+    throw new Error("missing result");
+  }
+  content += `${indent.get()}body, err := server.MarshalSSEResponder(&respr, encode${method.returns.result.type.eventType.name})\n`;
+  content += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
+  content += `${indent.get()}resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{\n`;
+  content += `${indent.push().get()}Body: body,\n`;
+  content += `${indent.get()}ContentType: "text/event-stream",\n`;
+  content += `${indent.pop().get()}})\n`;
+  content += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
   content += `${indent.get()}return resp, nil\n`;
   return content;
 }
