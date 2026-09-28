@@ -466,6 +466,18 @@ export interface UnionStruct extends StructBase {
 
   /** the variant fields of the union. exactly one is populated at runtime */
   fields: Array<UnionField>;
+
+  /** usage flags for this type */
+  usage: UnionStructFlags;
+}
+
+/** bit flags indicating how a union type is used */
+export enum UnionStructFlags {
+  /** used as a sum type */
+  SumType = 1,
+
+  /** used in SSE */
+  SseType = 2,
 }
 
 /**
@@ -1066,9 +1078,10 @@ export class UnionField extends StructField implements UnionField {
 }
 
 export class UnionStruct extends StructBase implements UnionStruct {
-  constructor(pkg: PackageContent, name: string) {
+  constructor(pkg: PackageContent, name: string, usage: UnionStructFlags) {
     super(pkg, name);
     this.kind = "unionStruct";
+    this.usage = usage;
     this.fields = new Array<UnionField>();
   }
 }
