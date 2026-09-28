@@ -943,10 +943,6 @@ function generateReturnsInfo(method: go.MethodType, apiType: "api" | "op"): Arra
     case "pageableMethod":
       // pager operations don't return an error
       return [`*runtime.Pager[${returnType}]`];
-    case "sseMethod":
-      if (apiType === "op") {
-        returnType = "*http.Response";
-      }
   }
   return [returnType, "error"];
 }
@@ -1082,7 +1078,7 @@ function generateLROBeginMethod(
 }
 
 function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpers.Indentation): string {
-  const params = new Array<string>();
+  const params = new Array<string>("ctx");
   for (const param of helpers.getMethodParameters(method)) {
     params.push(param.name);
   }
@@ -1094,7 +1090,7 @@ function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpe
   if (!method.returns.result || method.returns.result.kind !== "sseResult") {
     throw new Error("missing result");
   }
-  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, ${go.getTypeDeclaration(method.returns.result.type, method.receiver.type.pkg)}{\n`;
+  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
   body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
   body += `${indent.push().get()}return client.${method.naming.operationMethod}(ctx, lastEventID, options)\n`;
   body += `${indent.pop().get()}},\n`;
@@ -1119,7 +1115,7 @@ function generateSseOperation(
   text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (*http.Response, error) {\n`;
 
   text += `${indent.get()}req, err := client.${method.naming.requestMethod}(${helpers.getCreateRequestParameters(method)})\n`;
-  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
 
   text += `${indent.get()}${helpers.buildIfBlock(indent, {
     condition: `lastEventID != ""`,
@@ -1127,15 +1123,14 @@ function generateSseOperation(
   })}\n`;
 
   text += `${indent.get()}httpResp, err := client.internal.Pipeline().Do(req)\n`;
-  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
 
-  const zeroResp = getZeroReturnValue(method, false);
   text += `${indent.get()}${helpers.buildIfBlock(indent, {
     condition: `!runtime.HasStatusCode(httpResp, ${helpers.formatStatusCodes(method.httpStatusCodes)})`,
-    body: (indent) => `${indent.get()}return ${zeroResp}, runtime.NewResponseError(httpResp)\n`,
+    body: (indent) => `${indent.get()}return nil, runtime.NewResponseError(httpResp)\n`,
   })}\n`;
 
-  text += `${indent.get()}return resp, nil\n`;
+  text += `${indent.get()}return httpResp, nil\n`;
   text += '}\n\n'; // end func
   return text;
 }

@@ -534,7 +534,7 @@ export class ClientAdapter {
   ): void {
     const exportOperation =
       (sdkMethod.kind === "basic" || sdkMethod.kind === "paging") &&
-      sdkMethod.access !== "internal";
+      sdkMethod.access !== "internal" && !sdkMethod.response.streamMetadata;
     const naming = new go.MethodNaming(
       helpers.getEffectiveName(sdkMethod, !exportOperation),
       helpers.getEffectiveName(sdkMethod, true, "CreateRequest"),
