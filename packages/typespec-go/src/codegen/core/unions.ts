@@ -83,15 +83,30 @@ function generateUnionsSerde(pkg: go.PackageContent): string {
   const imports = new ImportManager(pkg);
 
   imports.add("encoding/json");
-  imports.add("errors");
   imports.add("fmt");
 
+  let content = generateSerdeSseType(pkg.unions, imports, indent);
+  content += generateSerdeSumType(pkg.unions, imports, indent);
+
+  let text = helpers.contentPreamble(pkg);
+  text += imports.text();
+  text += content;
+
+  return text;
+}
+
+function generateSerdeSumType(unions: Array<go.UnionStruct>, imports: ImportManager, indent: helpers.Indentation): string {
   let emitProbe = false;
   let emitFloat = false;
   let emitRequired = false;
 
   let content = "";
-  for (const goUnion of pkg.unions) {
+  for (const goUnion of unions) {
+    if (!(goUnion.usage & go.UnionStructFlags.SumType)) {
+      continue;
+    }
+
+    imports.add("errors");
     content += generateMarshalJson(goUnion, indent);
     const result = generateUnmarshalJson(goUnion, indent);
     content += result.content;
@@ -102,20 +117,17 @@ function generateUnionsSerde(pkg: go.PackageContent): string {
     emitRequired = emitRequired ? true : result.emitRequired;
   }
 
-  let text = helpers.contentPreamble(pkg);
-  text += imports.text();
-  text += content;
   if (emitProbe) {
-    text += jsonKindProbe;
+    content += jsonKindProbe;
   }
   if (emitFloat) {
-    text += jsonNumberIsFloat;
+    content += jsonNumberIsFloat;
   }
   if (emitRequired) {
-    text += hasRequiredFields;
+    content += hasRequiredFields;
   }
 
-  return text;
+  return content;
 }
 
 /**
@@ -653,3 +665,7 @@ func hasRequiredFields(rawMsg map[string]json.RawMessage, fields ...string) bool
 	return len(fields) > 0
 }
 `;
+
+function generateSerdeSseType(unions: Array<go.UnionStruct>, imports: ImportManager, indent: helpers.Indentation): string {
+  return "// NYI\n";
+}
