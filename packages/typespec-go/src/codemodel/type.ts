@@ -458,6 +458,9 @@ export interface TokenCredential extends QualifiedType {
 export interface UnionField extends StructField {
   /** the variant's underlying type */
   type: UnionVariantType;
+
+  /** contains SSE specific info for this variant */
+  sse?: "withEnvelope" | "terminal";
 }
 
 /** a Go struct modeling a non-discriminated union where exactly one field is set */

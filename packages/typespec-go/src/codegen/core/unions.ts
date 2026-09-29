@@ -667,5 +667,17 @@ func hasRequiredFields(rawMsg map[string]json.RawMessage, fields ...string) bool
 `;
 
 function generateSerdeSseType(unions: Array<go.UnionStruct>, imports: ImportManager, indent: helpers.Indentation): string {
-  return "// NYI\n";
+  let content = "";
+  for (const goUnion of unions) {
+    if (!(goUnion.usage & go.UnionStructFlags.SseType)) {
+      continue;
+    }
+
+    imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
+    content += `func decode${goUnion.name}(frame streaming.EventFrame) (${goUnion.name}, bool, error) {\n`;
+    //content += `${indent.get()}${helpers.buildSwitchCase(indent, "frame.Type", variantCases)}`;
+    content += "}\n\n"; // end func
+  }
+
+  return content;
 }
