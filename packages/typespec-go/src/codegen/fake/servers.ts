@@ -1151,10 +1151,21 @@ function dispatchForSseBody(
   if (!method.returns.result || method.returns.result.kind !== "sseResult") {
     throw new Error("missing result");
   }
-  content += `${indent.get()}body, err := server.MarshalSSEResponder(&respr, encode${method.returns.result.type.eventType.name})\n`;
+
+  // when the method has a request body, dispatchForOperationBody
+  // already declared body for it so we need a distinct name
+  const paramGroups = helpers.getMethodParamGroups(method);
+  const hasRequestBody =
+    paramGroups.bodyParam !== undefined ||
+    paramGroups.formBodyParams.length > 0 ||
+    paramGroups.multipartBodyParams.length > 0 ||
+    paramGroups.partialBodyParams.length > 0;
+  const bodyVar = hasRequestBody ? "streamBody" : "body";
+
+  content += `${indent.get()}${bodyVar}, err := server.MarshalSSEResponder(&respr, encode${method.returns.result.type.eventType.name})\n`;
   content += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
   content += `${indent.get()}resp, err := server.NewResponse(server.ResponseContent{HTTPStatus: http.StatusOK}, req, &server.ResponseOptions{\n`;
-  content += `${indent.push().get()}Body: body,\n`;
+  content += `${indent.push().get()}Body: ${bodyVar},\n`;
   content += `${indent.get()}ContentType: "text/event-stream",\n`;
   content += `${indent.pop().get()}})\n`;
   content += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
