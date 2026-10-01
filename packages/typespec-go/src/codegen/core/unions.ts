@@ -666,18 +666,232 @@ func hasRequiredFields(rawMsg map[string]json.RawMessage, fields ...string) bool
 }
 `;
 
-function generateSerdeSseType(unions: Array<go.UnionStruct>, imports: ImportManager, indent: helpers.Indentation): string {
+/**
+ * creates the decode functions for the SSE union types
+ *
+ * @param unions the union types to inspect
+ * @param imports the import manager currently in scope
+ * @param indent the indentation helper currently in scope
+ * @returns the text for the decode functions
+ */
+function generateSerdeSseType(
+  unions: Array<go.UnionStruct>,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
   let content = "";
   for (const goUnion of unions) {
     if (!(goUnion.usage & go.UnionStructFlags.SseType)) {
       continue;
     }
 
-    imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
-    content += `func decode${goUnion.name}(frame streaming.EventFrame) (${goUnion.name}, bool, error) {\n`;
-    //content += `${indent.get()}${helpers.buildSwitchCase(indent, "frame.Type", variantCases)}`;
-    content += "}\n\n"; // end func
+    content += generateSseDecoder(goUnion, imports, indent);
   }
 
   return content;
+}
+
+/** the name of the SSE event received when the event field is absent */
+const messageEventName = "message";
+
+/** the events within an SSE union, grouped by how they're discriminated */
+interface sseEvents {
+  /** the events identified by the content of the SSE event field */
+  named: Array<go.UnionField>;
+
+  /** the event received when the SSE event field is absent */
+  message?: go.UnionField;
+
+  /** the unnamed terminal event, identified by the content of the SSE data field */
+  terminal?: go.UnionField;
+}
+
+/**
+ * groups the variants of the specified SSE union by how they're discriminated
+ *
+ * @param goUnion the union type to inspect
+ * @returns the grouped events
+ */
+function groupSseEvents(goUnion: go.UnionStruct): sseEvents {
+  const events: sseEvents = { named: new Array<go.UnionField>() };
+  for (const field of goUnion.fields) {
+    if (!field.sse) {
+      throw new CodegenError(
+        "InternalError",
+        `missing SSE info for field ${field.name} in union ${goUnion.name}`,
+      );
+    }
+
+    if (field.sse.name) {
+      events.named.push(field);
+    } else if (field.sse.terminal) {
+      // the terminal event has no event name so it's identified by its data
+      events.terminal = field;
+    } else {
+      events.message = field;
+    }
+  }
+
+  return events;
+}
+
+/**
+ * creates the decode function for the specified SSE union type
+ *
+ * @param goUnion the type for which to emit the function
+ * @param imports the import manager currently in scope
+ * @param indent the indentation helper currently in scope
+ * @returns the text for the decode function
+ */
+function generateSseDecoder(
+  goUnion: go.UnionStruct,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
+  imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
+
+  const events = groupSseEvents(goUnion);
+  const funcName = `decode${goUnion.name}`;
+
+  const article = goUnion.name.match(/^[aeiou]/i) ? "an" : "a";
+  let summary = `${funcName} maps an SSE event to ${article} ${goUnion.name} value.`;
+  if (events.terminal) {
+    summary += ` The terminal ${getSseTerminalValue(goUnion, events.terminal)} event ends the stream.`;
+  }
+
+  let text = helpers.formatDocComment({ summary: summary });
+  text += `func ${funcName}(frame streaming.EventFrame) (${goUnion.name}, bool, error) {\n`;
+
+  if (!events.named.length && !events.terminal && events.message) {
+    // every frame is the message event so there's nothing to discriminate on
+    text += generateSseEventClause(goUnion, events.message, imports, indent);
+    text += "}\n\n";
+    return text;
+  }
+
+  const cases = new Array<helpers.caseStatement>();
+  if (events.message) {
+    // a variant explicitly named message takes precedence for the message event name
+    const hasNamedMessage = events.named.some((field) => field.sse?.name === messageEventName);
+    cases.push({
+      expression: hasNamedMessage ? `""` : `"", "${messageEventName}"`,
+      clause: (indent) => generateSseEventClause(goUnion, events.message!, imports, indent),
+    });
+  }
+
+  for (const named of events.named) {
+    // an event named message is also received when the SSE event field is absent
+    const expression =
+      named.sse!.name === messageEventName && !events.message
+        ? `"", "${messageEventName}"`
+        : `"${named.sse!.name}"`;
+    cases.push({
+      expression: expression,
+      clause: (indent) => generateSseEventClause(goUnion, named, imports, indent),
+    });
+  }
+
+  imports.add("fmt");
+  text += `${indent.get()}${helpers.buildSwitchCase(indent, "frame.Type", cases, {
+    clause: (indent) => {
+      let clause = "";
+      if (events.terminal) {
+        clause += `${indent.get()}${helpers.buildIfBlock(indent, {
+          condition: `s := string(frame.Data); s == ${getSseTerminalValue(goUnion, events.terminal)}`,
+          body: (indent) =>
+            `${indent.get()}return ${goUnion.name}{${events.terminal!.name}: ${getSseEventValue(goUnion, events.terminal!, "s")}}, true, nil\n`,
+        })}\n`;
+      }
+      clause += `${indent.get()}return ${goUnion.name}{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)\n`;
+      return clause;
+    },
+  })}`;
+
+  text += "}\n\n"; // end func
+  return text;
+}
+
+/**
+ * creates the clause that deserializes the SSE data field into the specified event
+ *
+ * @param goUnion the union type containing the event
+ * @param field the variant for the event to deserialize
+ * @param imports the import manager currently in scope
+ * @param indent the indentation helper currently in scope
+ * @returns the text for the clause
+ */
+function generateSseEventClause(
+  goUnion: go.UnionStruct,
+  field: go.UnionField,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
+  const sse = field.sse!;
+
+  // for an event envelope, the data field contains only the payload
+  // which is deserialized into the envelope's field
+  const payloadType = sse.envelopeField ? sse.envelopeField.type : field.type;
+
+  let text: string;
+  let payloadVar: string;
+  if (sse.format === "Text") {
+    // the data field is the payload verbatim
+    text = `${indent.get()}s := string(frame.Data)\n`;
+    payloadVar = "s";
+  } else {
+    imports.add("encoding/json");
+    text = `${indent.get()}var v ${go.getTypeDeclaration(go.unwrapPtr(payloadType), goUnion.pkg)}\n`;
+    text += `${indent.get()}${helpers.buildIfBlock(indent, {
+      condition: "err := json.Unmarshal(frame.Data, &v); err != nil",
+      body: (indent) => `${indent.get()}return ${goUnion.name}{}, false, err\n`,
+    })}\n`;
+    payloadVar = "v";
+  }
+
+  const terminal = sse.terminal ? "true" : "false";
+  text += `${indent.get()}return ${goUnion.name}{${field.name}: ${getSseEventValue(goUnion, field, payloadVar)}}, ${terminal}, nil\n`;
+  return text;
+}
+
+/**
+ * returns the expression that assigns the deserialized payload to the union's variant
+ *
+ * @param goUnion the union type containing the event
+ * @param field the variant for the event
+ * @param payloadVar the name of the variable containing the payload
+ * @returns the text for the expression
+ */
+function getSseEventValue(
+  goUnion: go.UnionStruct,
+  field: go.UnionField,
+  payloadVar: string,
+): string {
+  const envelopeField = field.sse?.envelopeField;
+  if (envelopeField) {
+    const payload = envelopeField.type.kind === "ptr" ? `&${payloadVar}` : payloadVar;
+    const envelopeType = go.getTypeDeclaration(go.unwrapPtr(field.type), goUnion.pkg);
+    return `&${envelopeType}{${envelopeField.name}: ${payload}}`;
+  }
+
+  return field.type.kind === "ptr" ? `&${payloadVar}` : payloadVar;
+}
+
+/**
+ * returns the value of the data field that identifies the terminal event
+ *
+ * @param goUnion the union type containing the event
+ * @param field the variant for the terminal event
+ * @returns the text for the value
+ */
+function getSseTerminalValue(goUnion: go.UnionStruct, field: go.UnionField): string {
+  const literal = go.unwrapPtr(field.type);
+  if (literal.kind !== "literal") {
+    // without a literal value there's nothing to discriminate the terminal event on
+    throw new CodegenError(
+      "UnsupportedTsp",
+      `unsupported kind ${literal.kind} for the terminal SSE event in union ${goUnion.name}`,
+    );
+  }
+
+  return helpers.formatLiteralValue(literal, false);
 }

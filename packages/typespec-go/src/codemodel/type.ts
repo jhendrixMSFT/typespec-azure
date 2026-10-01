@@ -398,8 +398,33 @@ export type SliceArrayElementType = SliceArrayElementWireType | Ptr<SliceArrayEl
 /** the set of slice array wire types */
 export type SliceArrayElementWireType = Constant | String;
 
+/** describes the server-sent event (SSE) modeled by a union variant */
+export interface SseEvent {
+  /**
+   * the value of the SSE event field used to identify this event.
+   * undefined for unnamed variants which are message events.
+   */
+  name?: string;
+
+  /** indicates that receiving this event terminates the stream */
+  terminal: boolean;
+
+  /** the format of the event's data field */
+  format: SseEventFormat;
+
+  /**
+   * set when the variant type is an event envelope. the data field contains only
+   * the event payload which is deserialized into this field of the envelope.
+   * when unset, the data field contains the complete variant type.
+   */
+  envelopeField?: ModelField;
+}
+
+/** the set of formats for an SSE event's data field */
+export type SseEventFormat = "JSON" | "Text";
+
 export interface StreamingEventReader extends QualifiedType {
-  kind: "streamingEventReader"
+  kind: "streamingEventReader";
 
   /** the union of possible events */
   eventType: UnionStruct;
@@ -460,7 +485,7 @@ export interface UnionField extends StructField {
   type: UnionVariantType;
 
   /** contains SSE specific info for this variant */
-  sse?: "withEnvelope" | "terminal";
+  sse?: SseEvent;
 }
 
 /** a Go struct modeling a non-discriminated union where exactly one field is set */
@@ -1050,6 +1075,13 @@ export class SliceArray implements SliceArray {
     this.kind = "sliceArray";
     this.itemType = itemType;
     this.delimiter = delimiter;
+  }
+}
+
+export class SseEvent implements SseEvent {
+  constructor(format: SseEventFormat, terminal: boolean) {
+    this.format = format;
+    this.terminal = terminal;
   }
 }
 

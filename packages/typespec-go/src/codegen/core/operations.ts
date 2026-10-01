@@ -1092,7 +1092,8 @@ function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpe
   }
   body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
   body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
-  body += `${indent.push().get()}return client.${method.naming.operationMethod}(ctx, lastEventID, options)\n`;
+  params.splice(-2, 1, "lastEventID");
+  body += `${indent.push().get()}return client.${method.naming.operationMethod}(${params.join(", ")})\n`;
   body += `${indent.pop().get()}},\n`;
   body += `${indent.get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
   body += `${indent.get()}Reconnect: true,\n`;
