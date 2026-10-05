@@ -25,23 +25,23 @@ type SseProtocolServer struct {
 
 	// ID is the fake for method SseProtocolClient.ID
 	// HTTP status codes to indicate success: http.StatusOK
-	ID func(ctx context.Context, options *ssegroup.SseProtocolClientIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	ID func(ctx context.Context, options *ssegroup.SseProtocolClientOpenIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// InvalidID is the fake for method SseProtocolClient.InvalidID
 	// HTTP status codes to indicate success: http.StatusOK
-	InvalidID func(ctx context.Context, options *ssegroup.SseProtocolClientInvalidIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	InvalidID func(ctx context.Context, options *ssegroup.SseProtocolClientOpenInvalidIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// InvalidRetry is the fake for method SseProtocolClient.InvalidRetry
 	// HTTP status codes to indicate success: http.StatusOK
-	InvalidRetry func(ctx context.Context, options *ssegroup.SseProtocolClientInvalidRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	InvalidRetry func(ctx context.Context, options *ssegroup.SseProtocolClientOpenInvalidRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// Reconnect is the fake for method SseProtocolClient.Reconnect
 	// HTTP status codes to indicate success: http.StatusOK
-	Reconnect func(ctx context.Context, options *ssegroup.SseProtocolClientReconnectOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	Reconnect func(ctx context.Context, options *ssegroup.SseProtocolClientOpenReconnectOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
 	// Retry is the fake for method SseProtocolClient.Retry
 	// HTTP status codes to indicate success: http.StatusOK
-	Retry func(ctx context.Context, options *ssegroup.SseProtocolClientRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	Retry func(ctx context.Context, options *ssegroup.SseProtocolClientOpenRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseProtocolServerTransport creates a new instance of SseProtocolServerTransport with the provided implementation.

@@ -20,7 +20,7 @@ import (
 type SseNamedServer struct {
 	// Receive is the fake for method SseNamedClient.Receive
 	// HTTP status codes to indicate success: http.StatusOK
-	Receive func(ctx context.Context, options *ssegroup.SseNamedClientReceiveOptions) (resp azfake.SSEResponder[ssegroup.ResponseEvents], errResp azfake.ErrorResponder)
+	Receive func(ctx context.Context, options *ssegroup.SseNamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.ResponseEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseNamedServerTransport creates a new instance of SseNamedServerTransport with the provided implementation.
