@@ -29,28 +29,27 @@ type SseRetrieveClient struct {
 // canceling it ends the returned stream and fails in-progress reads. Call
 // Stream.Close to release the stream early.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseRetrieveClientStreamOptions contains the optional parameters for the SseRetrieveClient.Stream method.
-func (client *SseRetrieveClient) OpenStream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientStreamOptions) (SseRetrieveClientStreamResponse, error) {
-	connect := func(ctx context.Context, lastEventID string) (*http.Response, error) {
-		return client.streamConnect(ctx, lastEventID, request, options)
-	}
-	resp, err := connect(ctx, "")
+//   - options - SseRetrieveClientOpenStreamOptions contains the optional parameters for the SseRetrieveClient.Stream method.
+func (client *SseRetrieveClient) OpenStream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (SseRetrieveClientOpenStreamResponse, error) {
+	resp, err := client.streamConnect(ctx, "", request, options)
 	if err != nil {
-		return SseRetrieveClientStreamResponse{}, err
+		return SseRetrieveClientOpenStreamResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[RetrievalEvents]{
-		Decode:    decodeRetrievalEvents,
-		Connect:   connect,
+		Decode: decodeRetrievalEvents,
+		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
+			return client.streamConnect(ctx, lastEventID, request, options)
+		},
 		Reconnect: true,
 	}, nil)
 	if err != nil {
-		return SseRetrieveClientStreamResponse{}, err
+		return SseRetrieveClientOpenStreamResponse{}, err
 	}
-	return SseRetrieveClientStreamResponse{Stream: reader}, nil
+	return SseRetrieveClientOpenStreamResponse{Stream: reader}, nil
 }
 
 // streamConnect opens a connection for the Stream stream.
-func (client *SseRetrieveClient) streamConnect(ctx context.Context, lastEventID string, request RetrievalRequest, options *SseRetrieveClientStreamOptions) (*http.Response, error) {
+func (client *SseRetrieveClient) streamConnect(ctx context.Context, lastEventID string, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (*http.Response, error) {
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseRetrieveClient.Stream")
 	req, err := client.streamCreateRequest(ctx, request, options)
 	if err != nil {
@@ -70,7 +69,7 @@ func (client *SseRetrieveClient) streamConnect(ctx context.Context, lastEventID 
 }
 
 // streamCreateRequest creates the Stream request.
-func (client *SseRetrieveClient) streamCreateRequest(ctx context.Context, request RetrievalRequest, _ *SseRetrieveClientStreamOptions) (*policy.Request, error) {
+func (client *SseRetrieveClient) streamCreateRequest(ctx context.Context, request RetrievalRequest, _ *SseRetrieveClientOpenStreamOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/retrieve/stream"
 	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
 	if err != nil {

@@ -20,7 +20,7 @@ import (
 type SseRetrieveServer struct {
 	// Stream is the fake for method SseRetrieveClient.Stream
 	// HTTP status codes to indicate success: http.StatusOK
-	Stream func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder)
+	Stream func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientOpenStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseRetrieveServerTransport creates a new instance of SseRetrieveServerTransport with the provided implementation.
