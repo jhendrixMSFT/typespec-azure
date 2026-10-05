@@ -28,27 +28,26 @@ type SseUnnamedClient struct {
 // canceling it ends the returned stream and fails in-progress reads. Call
 // Stream.Close to release the stream early.
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseUnnamedClientReceiveOptions contains the optional parameters for the SseUnnamedClient.Receive method.
-func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnnamedClientReceiveOptions) (SseUnnamedClientReceiveResponse, error) {
-	connect := func(ctx context.Context, lastEventID string) (*http.Response, error) {
-		return client.receiveConnect(ctx, lastEventID, options)
-	}
-	resp, err := connect(ctx, "")
+//   - options - SseUnnamedClientOpenReceiveOptions contains the optional parameters for the SseUnnamedClient.Receive method.
+func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (SseUnnamedClientOpenReceiveResponse, error) {
+	resp, err := client.receiveConnect(ctx, "", options)
 	if err != nil {
-		return SseUnnamedClientReceiveResponse{}, err
+		return SseUnnamedClientOpenReceiveResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[UnnamedEvents]{
-		Decode:  decodeUnnamedEvents,
-		Connect: connect,
+		Decode: decodeUnnamedEvents,
+		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
+			return client.receiveConnect(ctx, lastEventID, options)
+		},
 	}, nil)
 	if err != nil {
-		return SseUnnamedClientReceiveResponse{}, err
+		return SseUnnamedClientOpenReceiveResponse{}, err
 	}
-	return SseUnnamedClientReceiveResponse{Stream: reader}, nil
+	return SseUnnamedClientOpenReceiveResponse{Stream: reader}, nil
 }
 
 // receiveConnect opens a connection for the Receive stream.
-func (client *SseUnnamedClient) receiveConnect(ctx context.Context, lastEventID string, options *SseUnnamedClientReceiveOptions) (*http.Response, error) {
+func (client *SseUnnamedClient) receiveConnect(ctx context.Context, lastEventID string, options *SseUnnamedClientOpenReceiveOptions) (*http.Response, error) {
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseUnnamedClient.Receive")
 	req, err := client.receiveCreateRequest(ctx, options)
 	if err != nil {
@@ -68,7 +67,7 @@ func (client *SseUnnamedClient) receiveConnect(ctx context.Context, lastEventID 
 }
 
 // receiveCreateRequest creates the Receive request.
-func (client *SseUnnamedClient) receiveCreateRequest(ctx context.Context, _ *SseUnnamedClientReceiveOptions) (*policy.Request, error) {
+func (client *SseUnnamedClient) receiveCreateRequest(ctx context.Context, _ *SseUnnamedClientOpenReceiveOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/unnamed/receive"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
 	if err != nil {

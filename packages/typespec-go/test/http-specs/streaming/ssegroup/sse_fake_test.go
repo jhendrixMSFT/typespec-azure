@@ -30,7 +30,7 @@ func newFakeSseClient(t *testing.T, srv *fake.SseServer) *ssegroup.SseClient {
 func TestFakeSseNamedReceive(t *testing.T) {
 	srv := &fake.SseServer{
 		SseNamedServer: fake.SseNamedServer{
-			Receive: func(ctx context.Context, options *ssegroup.SseNamedClientReceiveOptions) (resp azfake.SSEResponder[ssegroup.ResponseEvents], errResp azfake.ErrorResponder) {
+			Receive: func(ctx context.Context, options *ssegroup.SseNamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.ResponseEvents], errResp azfake.ErrorResponder) {
 				resp.AddEvent(ssegroup.ResponseEvents{ResponseCreated: &ssegroup.ResponseCreated{ID: to.Ptr("resp_1")}})
 				resp.AddEvent(ssegroup.ResponseEvents{ResponseDelta: &ssegroup.ResponseDelta{Delta: to.Ptr("Hello")}})
 				// the terminal [DONE] event ends the stream and is not surfaced
@@ -55,7 +55,7 @@ func TestFakeSseNamedReceive(t *testing.T) {
 func TestFakeSseUnnamedReceive(t *testing.T) {
 	srv := &fake.SseServer{
 		SseUnnamedServer: fake.SseUnnamedServer{
-			Receive: func(ctx context.Context, options *ssegroup.SseUnnamedClientReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder) {
+			Receive: func(ctx context.Context, options *ssegroup.SseUnnamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder) {
 				resp.AddEvent(ssegroup.UnnamedEvents{Info: &ssegroup.Info{Desc: to.Ptr("one")}})
 				resp.AddEvent(ssegroup.UnnamedEvents{Info: &ssegroup.Info{Desc: to.Ptr("two")}})
 				return
@@ -79,7 +79,7 @@ func TestFakeSseRetrieveStream(t *testing.T) {
 	var gotQuery string
 	srv := &fake.SseServer{
 		SseRetrieveServer: fake.SseRetrieveServer{
-			Stream: func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder) {
+			Stream: func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientOpenStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder) {
 				if request.Query != nil {
 					gotQuery = *request.Query
 				}
@@ -108,7 +108,7 @@ func TestFakeSseRetrieveStream(t *testing.T) {
 func TestFakeSseProtocolIDWithEnvelopeMetadata(t *testing.T) {
 	srv := &fake.SseServer{
 		SseProtocolServer: fake.SseProtocolServer{
-			ID: func(ctx context.Context, options *ssegroup.SseProtocolClientIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder) {
+			ID: func(ctx context.Context, options *ssegroup.SseProtocolClientOpenIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder) {
 				// AddFrame gives full control over the SSE envelope, including the event id
 				resp.AddFrame(streaming.EventFrame{ID: "event-1", Type: "message", Data: []byte(`{"message":"hello"}`)})
 				return

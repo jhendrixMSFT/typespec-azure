@@ -20,7 +20,7 @@ import (
 type SseUnnamedServer struct {
 	// Receive is the fake for method SseUnnamedClient.Receive
 	// HTTP status codes to indicate success: http.StatusOK
-	Receive func(ctx context.Context, options *ssegroup.SseUnnamedClientReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder)
+	Receive func(ctx context.Context, options *ssegroup.SseUnnamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseUnnamedServerTransport creates a new instance of SseUnnamedServerTransport with the provided implementation.

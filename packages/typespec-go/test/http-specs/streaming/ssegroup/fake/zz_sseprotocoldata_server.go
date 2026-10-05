@@ -20,11 +20,11 @@ import (
 type SseProtocolDataServer struct {
 	// WithEnvelope is the fake for method SseProtocolDataClient.WithEnvelope
 	// HTTP status codes to indicate success: http.StatusOK
-	WithEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientWithEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
+	WithEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientOpenWithEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
 
 	// WithoutEnvelope is the fake for method SseProtocolDataClient.WithoutEnvelope
 	// HTTP status codes to indicate success: http.StatusOK
-	WithoutEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientWithoutEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
+	WithoutEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientOpenWithoutEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseProtocolDataServerTransport creates a new instance of SseProtocolDataServerTransport with the provided implementation.

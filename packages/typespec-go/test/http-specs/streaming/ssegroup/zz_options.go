@@ -5,52 +5,52 @@
 package ssegroup
 
 // SseNamedClientReceiveOptions contains the optional parameters for the SseNamedClient.Receive method.
-type SseNamedClientReceiveOptions struct {
+type SseNamedClientOpenReceiveOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolClientIDOptions contains the optional parameters for the SseProtocolClient.ID method.
-type SseProtocolClientIDOptions struct {
+type SseProtocolClientOpenIDOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolClientInvalidIDOptions contains the optional parameters for the SseProtocolClient.InvalidID method.
-type SseProtocolClientInvalidIDOptions struct {
+type SseProtocolClientOpenInvalidIDOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolClientInvalidRetryOptions contains the optional parameters for the SseProtocolClient.InvalidRetry method.
-type SseProtocolClientInvalidRetryOptions struct {
+type SseProtocolClientOpenInvalidRetryOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolClientReconnectOptions contains the optional parameters for the SseProtocolClient.Reconnect method.
-type SseProtocolClientReconnectOptions struct {
+type SseProtocolClientOpenReconnectOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolClientRetryOptions contains the optional parameters for the SseProtocolClient.Retry method.
-type SseProtocolClientRetryOptions struct {
+type SseProtocolClientOpenRetryOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolDataClientWithEnvelopeOptions contains the optional parameters for the SseProtocolDataClient.WithEnvelope method.
-type SseProtocolDataClientWithEnvelopeOptions struct {
+type SseProtocolDataClientOpenWithEnvelopeOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseProtocolDataClientWithoutEnvelopeOptions contains the optional parameters for the SseProtocolDataClient.WithoutEnvelope
 // method.
-type SseProtocolDataClientWithoutEnvelopeOptions struct {
+type SseProtocolDataClientOpenWithoutEnvelopeOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseRetrieveClientStreamOptions contains the optional parameters for the SseRetrieveClient.Stream method.
-type SseRetrieveClientStreamOptions struct {
+type SseRetrieveClientOpenStreamOptions struct {
 	// placeholder for future optional parameters
 }
 
 // SseUnnamedClientReceiveOptions contains the optional parameters for the SseUnnamedClient.Receive method.
-type SseUnnamedClientReceiveOptions struct {
+type SseUnnamedClientOpenReceiveOptions struct {
 	// placeholder for future optional parameters
 }

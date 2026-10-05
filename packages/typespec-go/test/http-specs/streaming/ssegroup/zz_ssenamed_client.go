@@ -30,7 +30,7 @@ type SseNamedClient struct {
 // Stream.Close to release the stream early.
 // If the operation fails it returns an *azcore.ResponseError type.
 //   - options - SseNamedClientReceiveOptions contains the optional parameters for the SseNamedClient.Receive method.
-func (client *SseNamedClient) OpenReceive(ctx context.Context, options *SseNamedClientReceiveOptions) (SseNamedClientReceiveResponse, error) {
+func (client *SseNamedClient) OpenReceive(ctx context.Context, options *SseNamedClientOpenReceiveOptions) (SseNamedClientOpenReceiveResponse, error) {
 	// NOTE: spans for SSE _must_ start in the Open<op> method
 	var err error
 	const operationName = "SseNamedClient.OpenReceive"
@@ -40,7 +40,7 @@ func (client *SseNamedClient) OpenReceive(ctx context.Context, options *SseNamed
 	// NOTE: Open<op> is synthesized just like Begin<op>
 	resp, err := client.receive(ctx, "", options)
 	if err != nil {
-		return SseNamedClientReceiveResponse{}, err
+		return SseNamedClientOpenReceiveResponse{}, err
 	}
 	// Reconnect: true enables transparent resume; the reader only reinvokes connect
 	// (with a non-empty lastEventID) once it has seen an event carrying an id.
@@ -53,14 +53,14 @@ func (client *SseNamedClient) OpenReceive(ctx context.Context, options *SseNamed
 		Reconnect: true,
 	}, nil)
 	if err != nil {
-		return SseNamedClientReceiveResponse{}, err
+		return SseNamedClientOpenReceiveResponse{}, err
 	}
 	// TODO: response headers would go here
-	return SseNamedClientReceiveResponse{Stream: reader}, nil
+	return SseNamedClientOpenReceiveResponse{Stream: reader}, nil
 }
 
 // receiveConnect opens a connection for the Receive stream.
-func (client *SseNamedClient) receive(ctx context.Context, lastEventID string, options *SseNamedClientReceiveOptions) (*http.Response, error) {
+func (client *SseNamedClient) receive(ctx context.Context, lastEventID string, options *SseNamedClientOpenReceiveOptions) (*http.Response, error) {
 	req, err := client.receiveCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -71,18 +71,18 @@ func (client *SseNamedClient) receive(ctx context.Context, lastEventID string, o
 	if lastEventID != "" {
 		req.Raw().Header.Set("Last-Event-ID", lastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
 // receiveCreateRequest creates the Receive request.
-func (client *SseNamedClient) receiveCreateRequest(ctx context.Context, _ *SseNamedClientReceiveOptions) (*policy.Request, error) {
+func (client *SseNamedClient) receiveCreateRequest(ctx context.Context, _ *SseNamedClientOpenReceiveOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/named/receive"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
 	if err != nil {
