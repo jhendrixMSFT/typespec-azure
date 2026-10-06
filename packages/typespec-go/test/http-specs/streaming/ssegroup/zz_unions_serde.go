@@ -7,15 +7,13 @@ package ssegroup
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 )
 
-// decodeDataEvents maps an SSE event to a DataEvents value, discriminating on the event name.
+// decodeDataEvents maps an SSE event to a DataEvents value.
 func decodeDataEvents(frame streaming.EventFrame) (DataEvents, bool, error) {
 	switch frame.Type {
 	case "withEnvelope":
-		// @data on a text/plain property: the SSE data field is the raw contents.
 		s := string(frame.Data)
 		return DataEvents{WithEnvelope: &WithEnvelope{Contents: &s}}, false, nil
 	case "withoutEnvelope":
@@ -29,8 +27,7 @@ func decodeDataEvents(frame streaming.EventFrame) (DataEvents, bool, error) {
 	}
 }
 
-// decodeProtocolEvents maps an SSE event to a ProtocolEvents value. Envelope
-// metadata (such as the event id) is surfaced by the streaming.EventReader, not the typed payload.
+// decodeProtocolEvents maps an SSE event to a ProtocolEvents value.
 func decodeProtocolEvents(frame streaming.EventFrame) (ProtocolEvents, bool, error) {
 	switch frame.Type {
 	case "", "message":
@@ -44,8 +41,7 @@ func decodeProtocolEvents(frame streaming.EventFrame) (ProtocolEvents, bool, err
 	}
 }
 
-// decodeResponseEvents maps an SSE event to a ResponseEvents value. The terminal
-// "[DONE]" event ends the stream.
+// decodeResponseEvents maps an SSE event to a ResponseEvents value. The terminal "[DONE]" event ends the stream.
 func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, error) {
 	switch frame.Type {
 	case "responseCreated":
@@ -68,22 +64,21 @@ func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, err
 	}
 }
 
-// decodeRetrievalEvents maps an SSE event to a RetrievalEvents value. The terminal
-// "[DONE]" event ends the stream.
+// decodeRetrievalEvents maps an SSE event to a RetrievalEvents value. The terminal "[DONE]" event ends the stream.
 func decodeRetrievalEvents(frame streaming.EventFrame) (RetrievalEvents, bool, error) {
 	switch frame.Type {
-	case "partialResult":
-		var v PartialResult
-		if err := json.Unmarshal(frame.Data, &v); err != nil {
-			return RetrievalEvents{}, false, err
-		}
-		return RetrievalEvents{PartialResult: &v}, false, nil
 	case "finalResult":
 		var v FinalResult
 		if err := json.Unmarshal(frame.Data, &v); err != nil {
 			return RetrievalEvents{}, false, err
 		}
 		return RetrievalEvents{FinalResult: &v}, false, nil
+	case "partialResult":
+		var v PartialResult
+		if err := json.Unmarshal(frame.Data, &v); err != nil {
+			return RetrievalEvents{}, false, err
+		}
+		return RetrievalEvents{PartialResult: &v}, false, nil
 	default:
 		if s := string(frame.Data); s == "[DONE]" {
 			return RetrievalEvents{LiteralString: &s}, true, nil

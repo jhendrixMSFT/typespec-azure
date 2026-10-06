@@ -7,9 +7,8 @@ package fake
 import (
 	"encoding/json"
 	"fmt"
-	"ssegroup"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"ssegroup"
 )
 
 // encodeDataEvents renders a DataEvents value to an SSE frame.
@@ -47,6 +46,8 @@ func encodeProtocolEvents(e ssegroup.ProtocolEvents) (streaming.EventFrame, erro
 // encodeResponseEvents renders a ResponseEvents value to an SSE frame.
 func encodeResponseEvents(e ssegroup.ResponseEvents) (streaming.EventFrame, error) {
 	switch {
+	case e.LiteralString != nil:
+		return streaming.EventFrame{Data: []byte(*e.LiteralString)}, nil
 	case e.ResponseCreated != nil:
 		data, err := json.Marshal(e.ResponseCreated)
 		if err != nil {
@@ -59,8 +60,6 @@ func encodeResponseEvents(e ssegroup.ResponseEvents) (streaming.EventFrame, erro
 			return streaming.EventFrame{}, err
 		}
 		return streaming.EventFrame{Type: "responseDelta", Data: data}, nil
-	case e.LiteralString != nil:
-		return streaming.EventFrame{Data: []byte(*e.LiteralString)}, nil
 	default:
 		return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
 	}
@@ -69,12 +68,6 @@ func encodeResponseEvents(e ssegroup.ResponseEvents) (streaming.EventFrame, erro
 // encodeRetrievalEvents renders a RetrievalEvents value to an SSE frame.
 func encodeRetrievalEvents(e ssegroup.RetrievalEvents) (streaming.EventFrame, error) {
 	switch {
-	case e.PartialResult != nil:
-		data, err := json.Marshal(e.PartialResult)
-		if err != nil {
-			return streaming.EventFrame{}, err
-		}
-		return streaming.EventFrame{Type: "partialResult", Data: data}, nil
 	case e.FinalResult != nil:
 		data, err := json.Marshal(e.FinalResult)
 		if err != nil {
@@ -83,6 +76,12 @@ func encodeRetrievalEvents(e ssegroup.RetrievalEvents) (streaming.EventFrame, er
 		return streaming.EventFrame{Type: "finalResult", Data: data}, nil
 	case e.LiteralString != nil:
 		return streaming.EventFrame{Data: []byte(*e.LiteralString)}, nil
+	case e.PartialResult != nil:
+		data, err := json.Marshal(e.PartialResult)
+		if err != nil {
+			return streaming.EventFrame{}, err
+		}
+		return streaming.EventFrame{Type: "partialResult", Data: data}, nil
 	default:
 		return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
 	}

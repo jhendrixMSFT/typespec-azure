@@ -1299,6 +1299,11 @@ function parseHeaderPathQueryParams(
     // contains the unescaped value.
     let paramValue = getRawParamValue(param);
 
+    if (param.kind === "sseLastEventIDParam") {
+      paramValues.set(param.name, paramValue);
+      continue;
+    }
+
     // optional params are pointer-wrapped; dispatch on the unwrapped type.
     const paramType = go.unwrapPtr(param.type);
 
@@ -1588,6 +1593,8 @@ function parseHeaderPathQueryParams(
           // check array before body in case the body is just an array
           if (param.type.kind === "slice") {
             paramNilCheck.push(`len(${getFinalParamValue(pkg, param, paramValues)}) > 0`);
+          } else if (param.kind === "sseLastEventIDParam") {
+            paramNilCheck.push(`${getFinalParamValue(pkg, param, paramValues)} != ""`);
           } else if (param.kind === "bodyParam") {
             if (param.bodyFormat === "binary") {
               imports.add("io");
@@ -1670,7 +1677,7 @@ function populateApiParams(
           (each: go.MethodParameter) => each.kind !== "resumeTokenParam",
         ).length;
         if (countParams === 0) {
-          // if the options param is empty or only contains the resume token param just pass nil
+          // if the options param only contains client-side options just pass nil
           params.push("nil");
           continue;
         }
@@ -1724,6 +1731,8 @@ function getRawParamValue(param: go.MethodParameter): string {
       return `qp.Get("${param.queryParameter}")`;
     case "uriParam":
       return "req.URL.Host";
+    case "sseLastEventIDParam":
+      return 'req.Header.Get("Last-Event-ID")';
     default:
       throw new CodegenError("InternalError", `unhandled parameter ${param.name}`);
   }

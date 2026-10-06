@@ -8,19 +8,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"ssegroup"
-
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"net/http"
+	"ssegroup"
 )
 
 // SseUnnamedServer is a fake server for instances of the ssegroup.SseUnnamedClient type.
 type SseUnnamedServer struct {
-	// Receive is the fake for method SseUnnamedClient.Receive
+	// OpenReceive is the fake for method SseUnnamedClient.OpenReceive
 	// HTTP status codes to indicate success: http.StatusOK
-	Receive func(ctx context.Context, options *ssegroup.SseUnnamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder)
+	OpenReceive func(ctx context.Context, options *ssegroup.SseUnnamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.UnnamedEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseUnnamedServerTransport creates a new instance of SseUnnamedServerTransport with the provided implementation.
@@ -57,8 +56,8 @@ func (s *SseUnnamedServerTransport) dispatchToMethodFake(req *http.Request, meth
 		}
 		if !intercepted {
 			switch method {
-			case "SseUnnamedClient.Receive":
-				res.resp, res.err = s.dispatchReceive(req)
+			case "SseUnnamedClient.OpenReceive":
+				res.resp, res.err = s.dispatchOpenReceive(req)
 			default:
 				res.err = fmt.Errorf("unhandled API %s", method)
 			}
@@ -75,11 +74,17 @@ func (s *SseUnnamedServerTransport) dispatchToMethodFake(req *http.Request, meth
 	}
 }
 
-func (s *SseUnnamedServerTransport) dispatchReceive(req *http.Request) (*http.Response, error) {
-	if s.srv.Receive == nil {
-		return nil, &nonRetriableError{errors.New("fake for method Receive not implemented")}
+func (s *SseUnnamedServerTransport) dispatchOpenReceive(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenReceive == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenReceive not implemented")}
 	}
-	respr, errRespr := s.srv.Receive(req.Context(), nil)
+	var options *ssegroup.SseUnnamedClientOpenReceiveOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseUnnamedClientOpenReceiveOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenReceive(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}

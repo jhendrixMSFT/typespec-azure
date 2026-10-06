@@ -8,19 +8,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"ssegroup"
-
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"net/http"
+	"ssegroup"
 )
 
 // SseRetrieveServer is a fake server for instances of the ssegroup.SseRetrieveClient type.
 type SseRetrieveServer struct {
-	// Stream is the fake for method SseRetrieveClient.Stream
+	// OpenStream is the fake for method SseRetrieveClient.OpenStream
 	// HTTP status codes to indicate success: http.StatusOK
-	Stream func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientOpenStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder)
+	OpenStream func(ctx context.Context, request ssegroup.RetrievalRequest, options *ssegroup.SseRetrieveClientOpenStreamOptions) (resp azfake.SSEResponder[ssegroup.RetrievalEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseRetrieveServerTransport creates a new instance of SseRetrieveServerTransport with the provided implementation.
@@ -57,8 +56,8 @@ func (s *SseRetrieveServerTransport) dispatchToMethodFake(req *http.Request, met
 		}
 		if !intercepted {
 			switch method {
-			case "SseRetrieveClient.Stream":
-				res.resp, res.err = s.dispatchStream(req)
+			case "SseRetrieveClient.OpenStream":
+				res.resp, res.err = s.dispatchOpenStream(req)
 			default:
 				res.err = fmt.Errorf("unhandled API %s", method)
 			}
@@ -75,15 +74,21 @@ func (s *SseRetrieveServerTransport) dispatchToMethodFake(req *http.Request, met
 	}
 }
 
-func (s *SseRetrieveServerTransport) dispatchStream(req *http.Request) (*http.Response, error) {
-	if s.srv.Stream == nil {
-		return nil, &nonRetriableError{errors.New("fake for method Stream not implemented")}
+func (s *SseRetrieveServerTransport) dispatchOpenStream(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenStream == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenStream not implemented")}
 	}
 	body, err := server.UnmarshalRequestAsJSON[ssegroup.RetrievalRequest](req)
 	if err != nil {
 		return nil, err
 	}
-	respr, errRespr := s.srv.Stream(req.Context(), body, nil)
+	var options *ssegroup.SseRetrieveClientOpenStreamOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseRetrieveClientOpenStreamOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenStream(req.Context(), body, options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
