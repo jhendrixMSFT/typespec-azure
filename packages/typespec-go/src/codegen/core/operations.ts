@@ -1082,8 +1082,6 @@ function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpe
   for (const param of helpers.getMethodParameters(method)) {
     params.push(param.name);
   }
-  params.splice(-1, 0, `""`);
-
   let body = `${indent.get()}resp, err := client.${method.naming.operationMethod}(${params.join(", ")})\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
@@ -1091,12 +1089,7 @@ function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpe
     throw new Error("missing result");
   }
   body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
-  body += `${indent.push().get()}Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {\n`;
-  params.splice(-2, 1, "lastEventID");
-  body += `${indent.push().get()}return client.${method.naming.operationMethod}(${params.join(", ")})\n`;
-  body += `${indent.pop().get()}},\n`;
-  body += `${indent.get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
-  body += `${indent.get()}Reconnect: true,\n`;
+  body += `${indent.push().get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
   body += `${indent.pop().get()}}, nil)\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
   // TODO: response headers
@@ -1110,7 +1103,6 @@ function generateSseOperation(
   indent: helpers.Indentation,
 ): string {
   const params = getAPIParameters(method, imports);
-  params.splice(-1, 0, "lastEventID string");
 
   let text = `// ${method.naming.operationMethod} opens a connection for the ${method.name} stream.\n`;
   text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (*http.Response, error) {\n`;
@@ -1118,9 +1110,17 @@ function generateSseOperation(
   text += `${indent.get()}req, err := client.${method.naming.requestMethod}(${helpers.getCreateRequestParameters(method)})\n`;
   text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
 
+  const lastEventID = method.optionalParamsGroup.params.find(
+    (param) => param.kind === "sseLastEventIDParam",
+  );
+  if (!lastEventID) {
+    throw new CodegenError("InternalError", "missing SSE last event ID option");
+  }
+  const optionsName = method.optionalParamsGroup.name;
   text += `${indent.get()}${helpers.buildIfBlock(indent, {
-    condition: `lastEventID != ""`,
-    body: (indent) => `${indent.get()}req.Raw().Header.Set("Last-Event-ID", lastEventID)\n`,
+    condition: `${optionsName} != nil && ${optionsName}.${lastEventID.name} != ""`,
+    body: (indent) =>
+      `${indent.get()}req.Raw().Header.Set("Last-Event-ID", ${optionsName}.${lastEventID.name})\n`,
   })}\n`;
 
   text += `${indent.get()}httpResp, err := client.internal.Pipeline().Do(req)\n`;

@@ -6,12 +6,11 @@ package ssegroup
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"net/http"
 )
 
 // SseProtocolClient contains the methods for the SseProtocol group.
@@ -29,24 +28,21 @@ func (client *SseProtocolClient) NewSseProtocolDataClient() *SseProtocolDataClie
 	}
 }
 
-// OpenID opens the ID Server-Sent Events stream. The initial connection is
-// established before returning.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenID -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseProtocolClientIDOptions contains the optional parameters for the SseProtocolClient.ID method.
+//   - options - SseProtocolClientOpenIDOptions contains the optional parameters for the SseProtocolClient.OpenID method.
 func (client *SseProtocolClient) OpenID(ctx context.Context, options *SseProtocolClientOpenIDOptions) (SseProtocolClientOpenIDResponse, error) {
-	resp, err := client.idConnect(ctx, "", options)
+	var err error
+	const operationName = "SseProtocolClient.OpenID"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.id(ctx, options)
 	if err != nil {
 		return SseProtocolClientOpenIDResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.idConnect(ctx, lastEventID, options)
-		},
 	}, nil)
 	if err != nil {
 		return SseProtocolClientOpenIDResponse{}, err
@@ -54,27 +50,26 @@ func (client *SseProtocolClient) OpenID(ctx context.Context, options *SseProtoco
 	return SseProtocolClientOpenIDResponse{Stream: reader}, nil
 }
 
-// idConnect opens a connection for the ID stream.
-func (client *SseProtocolClient) idConnect(ctx context.Context, lastEventID string, options *SseProtocolClientOpenIDOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseProtocolClient.ID")
+// id opens a connection for the OpenID stream.
+func (client *SseProtocolClient) id(ctx context.Context, options *SseProtocolClientOpenIDOptions) (*http.Response, error) {
 	req, err := client.idCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// idCreateRequest creates the ID request.
+// idCreateRequest creates the OpenID request.
 func (client *SseProtocolClient) idCreateRequest(ctx context.Context, _ *SseProtocolClientOpenIDOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/protocol/id"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
@@ -86,24 +81,22 @@ func (client *SseProtocolClient) idCreateRequest(ctx context.Context, _ *SseProt
 	return req, nil
 }
 
-// OpenInvalidID opens the InvalidID Server-Sent Events stream. The initial
-// connection is established before returning.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenInvalidID -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseProtocolClientInvalidIDOptions contains the optional parameters for the SseProtocolClient.InvalidID method.
+//   - options - SseProtocolClientOpenInvalidIDOptions contains the optional parameters for the SseProtocolClient.OpenInvalidID
+//     method.
 func (client *SseProtocolClient) OpenInvalidID(ctx context.Context, options *SseProtocolClientOpenInvalidIDOptions) (SseProtocolClientOpenInvalidIDResponse, error) {
-	resp, err := client.invalidIDConnect(ctx, "", options)
+	var err error
+	const operationName = "SseProtocolClient.OpenInvalidID"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.invalidID(ctx, options)
 	if err != nil {
 		return SseProtocolClientOpenInvalidIDResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.invalidIDConnect(ctx, lastEventID, options)
-		},
 	}, nil)
 	if err != nil {
 		return SseProtocolClientOpenInvalidIDResponse{}, err
@@ -111,27 +104,26 @@ func (client *SseProtocolClient) OpenInvalidID(ctx context.Context, options *Sse
 	return SseProtocolClientOpenInvalidIDResponse{Stream: reader}, nil
 }
 
-// invalidIDConnect opens a connection for the InvalidID stream.
-func (client *SseProtocolClient) invalidIDConnect(ctx context.Context, lastEventID string, options *SseProtocolClientOpenInvalidIDOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseProtocolClient.InvalidID")
+// invalidID opens a connection for the OpenInvalidID stream.
+func (client *SseProtocolClient) invalidID(ctx context.Context, options *SseProtocolClientOpenInvalidIDOptions) (*http.Response, error) {
 	req, err := client.invalidIDCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// invalidIDCreateRequest creates the InvalidID request.
+// invalidIDCreateRequest creates the OpenInvalidID request.
 func (client *SseProtocolClient) invalidIDCreateRequest(ctx context.Context, _ *SseProtocolClientOpenInvalidIDOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/protocol/invalid-id"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
@@ -143,25 +135,22 @@ func (client *SseProtocolClient) invalidIDCreateRequest(ctx context.Context, _ *
 	return req, nil
 }
 
-// OpenInvalidRetry opens the InvalidRetry Server-Sent Events stream. The initial
-// connection is established before returning.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenInvalidRetry -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseProtocolClientInvalidRetryOptions contains the optional parameters for the SseProtocolClient.InvalidRetry
+//   - options - SseProtocolClientOpenInvalidRetryOptions contains the optional parameters for the SseProtocolClient.OpenInvalidRetry
 //     method.
 func (client *SseProtocolClient) OpenInvalidRetry(ctx context.Context, options *SseProtocolClientOpenInvalidRetryOptions) (SseProtocolClientOpenInvalidRetryResponse, error) {
-	resp, err := client.invalidRetryConnect(ctx, "", options)
+	var err error
+	const operationName = "SseProtocolClient.OpenInvalidRetry"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.invalidRetry(ctx, options)
 	if err != nil {
 		return SseProtocolClientOpenInvalidRetryResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.invalidRetryConnect(ctx, lastEventID, options)
-		},
 	}, nil)
 	if err != nil {
 		return SseProtocolClientOpenInvalidRetryResponse{}, err
@@ -169,27 +158,26 @@ func (client *SseProtocolClient) OpenInvalidRetry(ctx context.Context, options *
 	return SseProtocolClientOpenInvalidRetryResponse{Stream: reader}, nil
 }
 
-// invalidRetryConnect opens a connection for the InvalidRetry stream.
-func (client *SseProtocolClient) invalidRetryConnect(ctx context.Context, lastEventID string, options *SseProtocolClientOpenInvalidRetryOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseProtocolClient.InvalidRetry")
+// invalidRetry opens a connection for the OpenInvalidRetry stream.
+func (client *SseProtocolClient) invalidRetry(ctx context.Context, options *SseProtocolClientOpenInvalidRetryOptions) (*http.Response, error) {
 	req, err := client.invalidRetryCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// invalidRetryCreateRequest creates the InvalidRetry request.
+// invalidRetryCreateRequest creates the OpenInvalidRetry request.
 func (client *SseProtocolClient) invalidRetryCreateRequest(ctx context.Context, _ *SseProtocolClientOpenInvalidRetryOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/protocol/invalid-retry"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
@@ -201,24 +189,22 @@ func (client *SseProtocolClient) invalidRetryCreateRequest(ctx context.Context, 
 	return req, nil
 }
 
-// OpenReconnect opens the Reconnect Server-Sent Events stream. The initial
-// connection is established before returning.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenReconnect -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseProtocolClientReconnectOptions contains the optional parameters for the SseProtocolClient.Reconnect method.
+//   - options - SseProtocolClientOpenReconnectOptions contains the optional parameters for the SseProtocolClient.OpenReconnect
+//     method.
 func (client *SseProtocolClient) OpenReconnect(ctx context.Context, options *SseProtocolClientOpenReconnectOptions) (SseProtocolClientOpenReconnectResponse, error) {
-	resp, err := client.reconnectConnect(ctx, "", options)
+	var err error
+	const operationName = "SseProtocolClient.OpenReconnect"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.reconnect(ctx, options)
 	if err != nil {
 		return SseProtocolClientOpenReconnectResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.reconnectConnect(ctx, lastEventID, options)
-		},
 	}, nil)
 	if err != nil {
 		return SseProtocolClientOpenReconnectResponse{}, err
@@ -226,27 +212,26 @@ func (client *SseProtocolClient) OpenReconnect(ctx context.Context, options *Sse
 	return SseProtocolClientOpenReconnectResponse{Stream: reader}, nil
 }
 
-// reconnectConnect opens a connection for the Reconnect stream.
-func (client *SseProtocolClient) reconnectConnect(ctx context.Context, lastEventID string, options *SseProtocolClientOpenReconnectOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseProtocolClient.Reconnect")
+// reconnect opens a connection for the OpenReconnect stream.
+func (client *SseProtocolClient) reconnect(ctx context.Context, options *SseProtocolClientOpenReconnectOptions) (*http.Response, error) {
 	req, err := client.reconnectCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// reconnectCreateRequest creates the Reconnect request.
+// reconnectCreateRequest creates the OpenReconnect request.
 func (client *SseProtocolClient) reconnectCreateRequest(ctx context.Context, _ *SseProtocolClientOpenReconnectOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/protocol/reconnect"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
@@ -258,24 +243,21 @@ func (client *SseProtocolClient) reconnectCreateRequest(ctx context.Context, _ *
 	return req, nil
 }
 
-// OpenRetry opens the Retry Server-Sent Events stream. The initial connection is
-// established before returning.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenRetry -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseProtocolClientRetryOptions contains the optional parameters for the SseProtocolClient.Retry method.
+//   - options - SseProtocolClientOpenRetryOptions contains the optional parameters for the SseProtocolClient.OpenRetry method.
 func (client *SseProtocolClient) OpenRetry(ctx context.Context, options *SseProtocolClientOpenRetryOptions) (SseProtocolClientOpenRetryResponse, error) {
-	resp, err := client.retryConnect(ctx, "", options)
+	var err error
+	const operationName = "SseProtocolClient.OpenRetry"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.retry(ctx, options)
 	if err != nil {
 		return SseProtocolClientOpenRetryResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.retryConnect(ctx, lastEventID, options)
-		},
 	}, nil)
 	if err != nil {
 		return SseProtocolClientOpenRetryResponse{}, err
@@ -283,27 +265,26 @@ func (client *SseProtocolClient) OpenRetry(ctx context.Context, options *SseProt
 	return SseProtocolClientOpenRetryResponse{Stream: reader}, nil
 }
 
-// retryConnect opens a connection for the Retry stream.
-func (client *SseProtocolClient) retryConnect(ctx context.Context, lastEventID string, options *SseProtocolClientOpenRetryOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseProtocolClient.Retry")
+// retry opens a connection for the OpenRetry stream.
+func (client *SseProtocolClient) retry(ctx context.Context, options *SseProtocolClientOpenRetryOptions) (*http.Response, error) {
 	req, err := client.retryCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// retryCreateRequest creates the Retry request.
+// retryCreateRequest creates the OpenRetry request.
 func (client *SseProtocolClient) retryCreateRequest(ctx context.Context, _ *SseProtocolClientOpenRetryOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/protocol/retry"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))

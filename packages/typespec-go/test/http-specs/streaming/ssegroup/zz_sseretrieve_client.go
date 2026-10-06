@@ -6,12 +6,11 @@ package ssegroup
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"net/http"
 )
 
 // SseRetrieveClient contains the methods for the SseRetrieve group.
@@ -21,26 +20,21 @@ type SseRetrieveClient struct {
 	endpoint string
 }
 
-// OpenStream opens the Stream Server-Sent Events stream. The initial connection
-// is established before returning; an unexpected mid-stream disconnect is
-// transparently reconnected via the Last-Event-ID header.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenStream -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseRetrieveClientOpenStreamOptions contains the optional parameters for the SseRetrieveClient.Stream method.
+//   - options - SseRetrieveClientOpenStreamOptions contains the optional parameters for the SseRetrieveClient.OpenStream method.
 func (client *SseRetrieveClient) OpenStream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (SseRetrieveClientOpenStreamResponse, error) {
-	resp, err := client.streamConnect(ctx, "", request, options)
+	var err error
+	const operationName = "SseRetrieveClient.OpenStream"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.stream(ctx, request, options)
 	if err != nil {
 		return SseRetrieveClientOpenStreamResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[RetrievalEvents]{
 		Decode: decodeRetrievalEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.streamConnect(ctx, lastEventID, request, options)
-		},
-		Reconnect: true,
 	}, nil)
 	if err != nil {
 		return SseRetrieveClientOpenStreamResponse{}, err
@@ -48,27 +42,26 @@ func (client *SseRetrieveClient) OpenStream(ctx context.Context, request Retriev
 	return SseRetrieveClientOpenStreamResponse{Stream: reader}, nil
 }
 
-// streamConnect opens a connection for the Stream stream.
-func (client *SseRetrieveClient) streamConnect(ctx context.Context, lastEventID string, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseRetrieveClient.Stream")
+// stream opens a connection for the OpenStream stream.
+func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (*http.Response, error) {
 	req, err := client.streamCreateRequest(ctx, request, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// streamCreateRequest creates the Stream request.
+// streamCreateRequest creates the OpenStream request.
 func (client *SseRetrieveClient) streamCreateRequest(ctx context.Context, request RetrievalRequest, _ *SseRetrieveClientOpenStreamOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/retrieve/stream"
 	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))

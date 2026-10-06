@@ -33,6 +33,25 @@ options:
     option: value
 ```
 
+## Server-sent event streams
+
+Generated SSE operation options include a `LastEventID` string. A non-empty value
+sets the `Last-Event-ID` request header; the default empty value omits the header.
+Use this option only when the service supports resuming from an event ID. Its
+presence does not imply that the service supports resumption.
+
+Streams do not automatically reconnect. Reaching the end of the response body
+ends the stream with `io.EOF`, even if events contain IDs, and read errors are
+returned to the caller.
+
+To resume, save the reader's `LastEventID()` after successfully processing an
+event, close the reader when finished, and call the operation again with that
+checkpoint in its `LastEventID` option. The service determines which event IDs
+remain valid and where the resumed stream starts.
+
+The TypeSpec SSE library does not currently expose a resumability annotation, so
+resumption support cannot be inferred from the operation's TypeSpec definition.
+
 ## Emitter options
 
 ### `emitter-output-dir`

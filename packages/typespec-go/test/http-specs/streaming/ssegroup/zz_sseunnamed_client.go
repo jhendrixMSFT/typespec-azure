@@ -6,12 +6,11 @@ package ssegroup
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"net/http"
 )
 
 // SseUnnamedClient contains the methods for the SseUnnamed group.
@@ -21,24 +20,21 @@ type SseUnnamedClient struct {
 	endpoint string
 }
 
-// OpenReceive opens the Receive Server-Sent Events stream. The initial connection
-// is established before returning.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenReceive -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseUnnamedClientOpenReceiveOptions contains the optional parameters for the SseUnnamedClient.Receive method.
+//   - options - SseUnnamedClientOpenReceiveOptions contains the optional parameters for the SseUnnamedClient.OpenReceive method.
 func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (SseUnnamedClientOpenReceiveResponse, error) {
-	resp, err := client.receiveConnect(ctx, "", options)
+	var err error
+	const operationName = "SseUnnamedClient.OpenReceive"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	resp, err := client.receive(ctx, options)
 	if err != nil {
 		return SseUnnamedClientOpenReceiveResponse{}, err
 	}
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[UnnamedEvents]{
 		Decode: decodeUnnamedEvents,
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.receiveConnect(ctx, lastEventID, options)
-		},
 	}, nil)
 	if err != nil {
 		return SseUnnamedClientOpenReceiveResponse{}, err
@@ -46,27 +42,26 @@ func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnn
 	return SseUnnamedClientOpenReceiveResponse{Stream: reader}, nil
 }
 
-// receiveConnect opens a connection for the Receive stream.
-func (client *SseUnnamedClient) receiveConnect(ctx context.Context, lastEventID string, options *SseUnnamedClientOpenReceiveOptions) (*http.Response, error) {
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SseUnnamedClient.Receive")
+// receive opens a connection for the OpenReceive stream.
+func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (*http.Response, error) {
 	req, err := client.receiveCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	resp, err := client.internal.Pipeline().Do(req)
+	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if !runtime.HasStatusCode(resp, http.StatusOK) {
-		return nil, runtime.NewResponseError(resp)
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		return nil, runtime.NewResponseError(httpResp)
 	}
-	return resp, nil
+	return httpResp, nil
 }
 
-// receiveCreateRequest creates the Receive request.
+// receiveCreateRequest creates the OpenReceive request.
 func (client *SseUnnamedClient) receiveCreateRequest(ctx context.Context, _ *SseUnnamedClientOpenReceiveOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/unnamed/receive"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))

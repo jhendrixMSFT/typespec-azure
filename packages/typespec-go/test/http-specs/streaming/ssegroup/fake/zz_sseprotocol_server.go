@@ -8,14 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"net/http"
 	"ssegroup"
 	"strings"
 	"sync"
-
-	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 )
 
 // SseProtocolServer is a fake server for instances of the ssegroup.SseProtocolClient type.
@@ -23,25 +22,25 @@ type SseProtocolServer struct {
 	// SseProtocolDataServer contains the fakes for client SseProtocolDataClient
 	SseProtocolDataServer SseProtocolDataServer
 
-	// ID is the fake for method SseProtocolClient.ID
+	// OpenID is the fake for method SseProtocolClient.OpenID
 	// HTTP status codes to indicate success: http.StatusOK
-	ID func(ctx context.Context, options *ssegroup.SseProtocolClientOpenIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	OpenID func(ctx context.Context, options *ssegroup.SseProtocolClientOpenIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
-	// InvalidID is the fake for method SseProtocolClient.InvalidID
+	// OpenInvalidID is the fake for method SseProtocolClient.OpenInvalidID
 	// HTTP status codes to indicate success: http.StatusOK
-	InvalidID func(ctx context.Context, options *ssegroup.SseProtocolClientOpenInvalidIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	OpenInvalidID func(ctx context.Context, options *ssegroup.SseProtocolClientOpenInvalidIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
-	// InvalidRetry is the fake for method SseProtocolClient.InvalidRetry
+	// OpenInvalidRetry is the fake for method SseProtocolClient.OpenInvalidRetry
 	// HTTP status codes to indicate success: http.StatusOK
-	InvalidRetry func(ctx context.Context, options *ssegroup.SseProtocolClientOpenInvalidRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	OpenInvalidRetry func(ctx context.Context, options *ssegroup.SseProtocolClientOpenInvalidRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
-	// Reconnect is the fake for method SseProtocolClient.Reconnect
+	// OpenReconnect is the fake for method SseProtocolClient.OpenReconnect
 	// HTTP status codes to indicate success: http.StatusOK
-	Reconnect func(ctx context.Context, options *ssegroup.SseProtocolClientOpenReconnectOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	OpenReconnect func(ctx context.Context, options *ssegroup.SseProtocolClientOpenReconnectOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 
-	// Retry is the fake for method SseProtocolClient.Retry
+	// OpenRetry is the fake for method SseProtocolClient.OpenRetry
 	// HTTP status codes to indicate success: http.StatusOK
-	Retry func(ctx context.Context, options *ssegroup.SseProtocolClientOpenRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
+	OpenRetry func(ctx context.Context, options *ssegroup.SseProtocolClientOpenRetryOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseProtocolServerTransport creates a new instance of SseProtocolServerTransport with the provided implementation.
@@ -100,16 +99,16 @@ func (s *SseProtocolServerTransport) dispatchToMethodFake(req *http.Request, met
 		}
 		if !intercepted {
 			switch method {
-			case "SseProtocolClient.ID":
-				res.resp, res.err = s.dispatchID(req)
-			case "SseProtocolClient.InvalidID":
-				res.resp, res.err = s.dispatchInvalidID(req)
-			case "SseProtocolClient.InvalidRetry":
-				res.resp, res.err = s.dispatchInvalidRetry(req)
-			case "SseProtocolClient.Reconnect":
-				res.resp, res.err = s.dispatchReconnect(req)
-			case "SseProtocolClient.Retry":
-				res.resp, res.err = s.dispatchRetry(req)
+			case "SseProtocolClient.OpenID":
+				res.resp, res.err = s.dispatchOpenID(req)
+			case "SseProtocolClient.OpenInvalidID":
+				res.resp, res.err = s.dispatchOpenInvalidID(req)
+			case "SseProtocolClient.OpenInvalidRetry":
+				res.resp, res.err = s.dispatchOpenInvalidRetry(req)
+			case "SseProtocolClient.OpenReconnect":
+				res.resp, res.err = s.dispatchOpenReconnect(req)
+			case "SseProtocolClient.OpenRetry":
+				res.resp, res.err = s.dispatchOpenRetry(req)
 			default:
 				res.err = fmt.Errorf("unhandled API %s", method)
 			}
@@ -126,11 +125,17 @@ func (s *SseProtocolServerTransport) dispatchToMethodFake(req *http.Request, met
 	}
 }
 
-func (s *SseProtocolServerTransport) dispatchID(req *http.Request) (*http.Response, error) {
-	if s.srv.ID == nil {
-		return nil, &nonRetriableError{errors.New("fake for method ID not implemented")}
+func (s *SseProtocolServerTransport) dispatchOpenID(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenID == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenID not implemented")}
 	}
-	respr, errRespr := s.srv.ID(req.Context(), nil)
+	var options *ssegroup.SseProtocolClientOpenIDOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolClientOpenIDOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenID(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
@@ -148,11 +153,17 @@ func (s *SseProtocolServerTransport) dispatchID(req *http.Request) (*http.Respon
 	return resp, nil
 }
 
-func (s *SseProtocolServerTransport) dispatchInvalidID(req *http.Request) (*http.Response, error) {
-	if s.srv.InvalidID == nil {
-		return nil, &nonRetriableError{errors.New("fake for method InvalidID not implemented")}
+func (s *SseProtocolServerTransport) dispatchOpenInvalidID(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenInvalidID == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenInvalidID not implemented")}
 	}
-	respr, errRespr := s.srv.InvalidID(req.Context(), nil)
+	var options *ssegroup.SseProtocolClientOpenInvalidIDOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolClientOpenInvalidIDOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenInvalidID(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
@@ -170,11 +181,17 @@ func (s *SseProtocolServerTransport) dispatchInvalidID(req *http.Request) (*http
 	return resp, nil
 }
 
-func (s *SseProtocolServerTransport) dispatchInvalidRetry(req *http.Request) (*http.Response, error) {
-	if s.srv.InvalidRetry == nil {
-		return nil, &nonRetriableError{errors.New("fake for method InvalidRetry not implemented")}
+func (s *SseProtocolServerTransport) dispatchOpenInvalidRetry(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenInvalidRetry == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenInvalidRetry not implemented")}
 	}
-	respr, errRespr := s.srv.InvalidRetry(req.Context(), nil)
+	var options *ssegroup.SseProtocolClientOpenInvalidRetryOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolClientOpenInvalidRetryOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenInvalidRetry(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
@@ -192,11 +209,17 @@ func (s *SseProtocolServerTransport) dispatchInvalidRetry(req *http.Request) (*h
 	return resp, nil
 }
 
-func (s *SseProtocolServerTransport) dispatchReconnect(req *http.Request) (*http.Response, error) {
-	if s.srv.Reconnect == nil {
-		return nil, &nonRetriableError{errors.New("fake for method Reconnect not implemented")}
+func (s *SseProtocolServerTransport) dispatchOpenReconnect(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenReconnect == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenReconnect not implemented")}
 	}
-	respr, errRespr := s.srv.Reconnect(req.Context(), nil)
+	var options *ssegroup.SseProtocolClientOpenReconnectOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolClientOpenReconnectOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenReconnect(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
@@ -214,11 +237,17 @@ func (s *SseProtocolServerTransport) dispatchReconnect(req *http.Request) (*http
 	return resp, nil
 }
 
-func (s *SseProtocolServerTransport) dispatchRetry(req *http.Request) (*http.Response, error) {
-	if s.srv.Retry == nil {
-		return nil, &nonRetriableError{errors.New("fake for method Retry not implemented")}
+func (s *SseProtocolServerTransport) dispatchOpenRetry(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenRetry == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenRetry not implemented")}
 	}
-	respr, errRespr := s.srv.Retry(req.Context(), nil)
+	var options *ssegroup.SseProtocolClientOpenRetryOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolClientOpenRetryOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenRetry(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}

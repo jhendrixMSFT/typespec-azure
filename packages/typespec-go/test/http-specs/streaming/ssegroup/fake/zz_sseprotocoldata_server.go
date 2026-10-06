@@ -8,23 +8,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"ssegroup"
-
 	azfake "github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake/server"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"net/http"
+	"ssegroup"
 )
 
 // SseProtocolDataServer is a fake server for instances of the ssegroup.SseProtocolDataClient type.
 type SseProtocolDataServer struct {
-	// WithEnvelope is the fake for method SseProtocolDataClient.WithEnvelope
+	// OpenWithEnvelope is the fake for method SseProtocolDataClient.OpenWithEnvelope
 	// HTTP status codes to indicate success: http.StatusOK
-	WithEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientOpenWithEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
+	OpenWithEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientOpenWithEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
 
-	// WithoutEnvelope is the fake for method SseProtocolDataClient.WithoutEnvelope
+	// OpenWithoutEnvelope is the fake for method SseProtocolDataClient.OpenWithoutEnvelope
 	// HTTP status codes to indicate success: http.StatusOK
-	WithoutEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientOpenWithoutEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
+	OpenWithoutEnvelope func(ctx context.Context, options *ssegroup.SseProtocolDataClientOpenWithoutEnvelopeOptions) (resp azfake.SSEResponder[ssegroup.DataEvents], errResp azfake.ErrorResponder)
 }
 
 // NewSseProtocolDataServerTransport creates a new instance of SseProtocolDataServerTransport with the provided implementation.
@@ -61,10 +60,10 @@ func (s *SseProtocolDataServerTransport) dispatchToMethodFake(req *http.Request,
 		}
 		if !intercepted {
 			switch method {
-			case "SseProtocolDataClient.WithEnvelope":
-				res.resp, res.err = s.dispatchWithEnvelope(req)
-			case "SseProtocolDataClient.WithoutEnvelope":
-				res.resp, res.err = s.dispatchWithoutEnvelope(req)
+			case "SseProtocolDataClient.OpenWithEnvelope":
+				res.resp, res.err = s.dispatchOpenWithEnvelope(req)
+			case "SseProtocolDataClient.OpenWithoutEnvelope":
+				res.resp, res.err = s.dispatchOpenWithoutEnvelope(req)
 			default:
 				res.err = fmt.Errorf("unhandled API %s", method)
 			}
@@ -81,11 +80,17 @@ func (s *SseProtocolDataServerTransport) dispatchToMethodFake(req *http.Request,
 	}
 }
 
-func (s *SseProtocolDataServerTransport) dispatchWithEnvelope(req *http.Request) (*http.Response, error) {
-	if s.srv.WithEnvelope == nil {
-		return nil, &nonRetriableError{errors.New("fake for method WithEnvelope not implemented")}
+func (s *SseProtocolDataServerTransport) dispatchOpenWithEnvelope(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenWithEnvelope == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenWithEnvelope not implemented")}
 	}
-	respr, errRespr := s.srv.WithEnvelope(req.Context(), nil)
+	var options *ssegroup.SseProtocolDataClientOpenWithEnvelopeOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolDataClientOpenWithEnvelopeOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenWithEnvelope(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}
@@ -103,11 +108,17 @@ func (s *SseProtocolDataServerTransport) dispatchWithEnvelope(req *http.Request)
 	return resp, nil
 }
 
-func (s *SseProtocolDataServerTransport) dispatchWithoutEnvelope(req *http.Request) (*http.Response, error) {
-	if s.srv.WithoutEnvelope == nil {
-		return nil, &nonRetriableError{errors.New("fake for method WithoutEnvelope not implemented")}
+func (s *SseProtocolDataServerTransport) dispatchOpenWithoutEnvelope(req *http.Request) (*http.Response, error) {
+	if s.srv.OpenWithoutEnvelope == nil {
+		return nil, &nonRetriableError{errors.New("fake for method OpenWithoutEnvelope not implemented")}
 	}
-	respr, errRespr := s.srv.WithoutEnvelope(req.Context(), nil)
+	var options *ssegroup.SseProtocolDataClientOpenWithoutEnvelopeOptions
+	if req.Header.Get("Last-Event-ID") != "" {
+		options = &ssegroup.SseProtocolDataClientOpenWithoutEnvelopeOptions{
+			LastEventID: req.Header.Get("Last-Event-ID"),
+		}
+	}
+	respr, errRespr := s.srv.OpenWithoutEnvelope(req.Context(), options)
 	if respErr := server.GetError(errRespr, req); respErr != nil {
 		return nil, respErr
 	}

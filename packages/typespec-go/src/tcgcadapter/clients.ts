@@ -534,7 +534,8 @@ export class ClientAdapter {
   ): void {
     const exportOperation =
       (sdkMethod.kind === "basic" || sdkMethod.kind === "paging") &&
-      sdkMethod.access !== "internal" && !sdkMethod.response.streamMetadata;
+      sdkMethod.access !== "internal" &&
+      !sdkMethod.response.streamMetadata;
     const naming = new go.MethodNaming(
       helpers.getEffectiveName(sdkMethod, !exportOperation),
       helpers.getEffectiveName(sdkMethod, true, "CreateRequest"),
@@ -926,6 +927,18 @@ export class ClientAdapter {
           }
         }
       }
+    }
+
+    if (method.kind === "sseMethod") {
+      let name = "LastEventID";
+      let suffix = 0;
+      while (method.optionalParamsGroup.params.some((param) => param.name === name)) {
+        name = `LastEventID${++suffix}`;
+      }
+      const lastEventID = new go.SseLastEventIDParameter(name);
+      lastEventID.group = method.optionalParamsGroup;
+      method.optionalParamsGroup.params.push(lastEventID);
+      method.parameters.push(lastEventID);
     }
 
     // we must do this after adapting method params as it can add optional params

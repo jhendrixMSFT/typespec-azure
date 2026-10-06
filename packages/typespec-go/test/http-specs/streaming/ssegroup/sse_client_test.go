@@ -9,6 +9,7 @@ import (
 	"io"
 	"ssegroup"
 	"testing"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/stretchr/testify/require"
@@ -118,7 +119,9 @@ func TestSseProtocolDataWithoutEnvelope(t *testing.T) {
 }
 
 func TestSseProtocolID(t *testing.T) {
-	streamResp, err := newSseClient(t).NewSseProtocolClient().OpenID(context.Background(), nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	streamResp, err := newSseClient(t).NewSseProtocolClient().OpenID(ctx, nil)
 	require.NoError(t, err)
 	stream := streamResp.Stream
 	require.NotNil(t, stream)
@@ -173,15 +176,36 @@ func TestSseProtocolInvalidRetry(t *testing.T) {
 }
 
 func TestSseProtocolReconnect(t *testing.T) {
-	streamResp, err := newSseClient(t).NewSseProtocolClient().OpenReconnect(context.Background(), nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client := newSseClient(t).NewSseProtocolClient()
+	streamResp, err := client.OpenReconnect(ctx, nil)
 	require.NoError(t, err)
 	stream := streamResp.Stream
 	require.NotNil(t, stream)
 	defer stream.Close()
 
-	events := drain(t, stream)
-	require.Len(t, events, 1)
-	require.NotNil(t, events[0].ProtocolInfo)
-	require.Equal(t, "hello", *events[0].ProtocolInfo.Message)
+	event, err := stream.Next()
+	require.NoError(t, err)
+	require.NotNil(t, event.ProtocolInfo)
+	require.Equal(t, "hello", *event.ProtocolInfo.Message)
 	require.Equal(t, "event-1", stream.LastEventID())
+
+	lastEventID := stream.LastEventID()
+	_, err = stream.Next()
+	require.ErrorIs(t, err, io.EOF)
+	require.NoError(t, stream.Close())
+
+	streamResp, err = client.OpenReconnect(ctx, &ssegroup.SseProtocolClientOpenReconnectOptions{LastEventID: lastEventID})
+	require.NoError(t, err)
+	resumed := streamResp.Stream
+	require.NotNil(t, resumed)
+	defer resumed.Close()
+	event, err = resumed.Next()
+	require.NoError(t, err)
+	require.NotNil(t, event.ProtocolInfo)
+	require.Equal(t, "world", *event.ProtocolInfo.Message)
+	require.Equal(t, "event-2", resumed.LastEventID())
+	_, err = resumed.Next()
+	require.ErrorIs(t, err, io.EOF)
 }
