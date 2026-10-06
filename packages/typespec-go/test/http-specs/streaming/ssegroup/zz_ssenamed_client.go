@@ -6,12 +6,11 @@ package ssegroup
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"net/http"
 )
 
 // SseNamedClient contains the methods for the SseNamed group.
@@ -21,55 +20,36 @@ type SseNamedClient struct {
 	endpoint string
 }
 
-// OpenReceive opens the Receive Server-Sent Events stream. The initial connection
-// is established before returning; an unexpected mid-stream disconnect is
-// transparently reconnected via the Last-Event-ID header.
-//
-// The provided ctx governs the lifetime of the entire stream, not just this call:
-// canceling it ends the returned stream and fails in-progress reads. Call
-// Stream.Close to release the stream early.
+// OpenReceive -
 // If the operation fails it returns an *azcore.ResponseError type.
-//   - options - SseNamedClientReceiveOptions contains the optional parameters for the SseNamedClient.Receive method.
+//   - options - SseNamedClientOpenReceiveOptions contains the optional parameters for the SseNamedClient.OpenReceive method.
 func (client *SseNamedClient) OpenReceive(ctx context.Context, options *SseNamedClientOpenReceiveOptions) (SseNamedClientOpenReceiveResponse, error) {
-	// NOTE: spans for SSE _must_ start in the Open<op> method
 	var err error
 	const operationName = "SseNamedClient.OpenReceive"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	// NOTE: Open<op> is synthesized just like Begin<op>
-	resp, err := client.receive(ctx, "", options)
+	resp, err := client.receive(ctx, options)
 	if err != nil {
 		return SseNamedClientOpenReceiveResponse{}, err
 	}
-	// Reconnect: true enables transparent resume; the reader only reinvokes connect
-	// (with a non-empty lastEventID) once it has seen an event carrying an id.
-	// NOTE: only emit "Reconnect: true" when the tsp indicates the operation supports it.
 	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[ResponseEvents]{
-		Connect: func(ctx context.Context, lastEventID string) (*http.Response, error) {
-			return client.receive(ctx, lastEventID, options)
-		},
-		Decode:    decodeResponseEvents,
-		Reconnect: true,
+		Decode: decodeResponseEvents,
 	}, nil)
 	if err != nil {
 		return SseNamedClientOpenReceiveResponse{}, err
 	}
-	// TODO: response headers would go here
 	return SseNamedClientOpenReceiveResponse{Stream: reader}, nil
 }
 
-// receiveConnect opens a connection for the Receive stream.
-func (client *SseNamedClient) receive(ctx context.Context, lastEventID string, options *SseNamedClientOpenReceiveOptions) (*http.Response, error) {
+// receive opens a connection for the OpenReceive stream.
+func (client *SseNamedClient) receive(ctx context.Context, options *SseNamedClientOpenReceiveOptions) (*http.Response, error) {
 	req, err := client.receiveCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
 	}
-	// Last-Event-ID is an SSE protocol header, not a modeled parameter; it is only
-	// set on reconnect (lastEventID is "" on the initial connect).
-	// NOTE: emitter will need to synthesize this
-	if lastEventID != "" {
-		req.Raw().Header.Set("Last-Event-ID", lastEventID)
+	if options != nil && options.LastEventID != "" {
+		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
 	if err != nil {
@@ -81,7 +61,7 @@ func (client *SseNamedClient) receive(ctx context.Context, lastEventID string, o
 	return httpResp, nil
 }
 
-// receiveCreateRequest creates the Receive request.
+// receiveCreateRequest creates the OpenReceive request.
 func (client *SseNamedClient) receiveCreateRequest(ctx context.Context, _ *SseNamedClientOpenReceiveOptions) (*policy.Request, error) {
 	urlPath := "/streaming/sse/named/receive"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))

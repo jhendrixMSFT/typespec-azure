@@ -4,53 +4,74 @@
 
 package ssegroup
 
-// SseNamedClientReceiveOptions contains the optional parameters for the SseNamedClient.Receive method.
+// SseNamedClientOpenReceiveOptions contains the optional parameters for the SseNamedClient.OpenReceive method.
 type SseNamedClientOpenReceiveOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolClientIDOptions contains the optional parameters for the SseProtocolClient.ID method.
+// SseProtocolClientOpenIDOptions contains the optional parameters for the SseProtocolClient.OpenID method.
 type SseProtocolClientOpenIDOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolClientInvalidIDOptions contains the optional parameters for the SseProtocolClient.InvalidID method.
+// SseProtocolClientOpenInvalidIDOptions contains the optional parameters for the SseProtocolClient.OpenInvalidID method.
 type SseProtocolClientOpenInvalidIDOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolClientInvalidRetryOptions contains the optional parameters for the SseProtocolClient.InvalidRetry method.
+// SseProtocolClientOpenInvalidRetryOptions contains the optional parameters for the SseProtocolClient.OpenInvalidRetry method.
 type SseProtocolClientOpenInvalidRetryOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolClientReconnectOptions contains the optional parameters for the SseProtocolClient.Reconnect method.
+// SseProtocolClientOpenReconnectOptions contains the optional parameters for the SseProtocolClient.OpenReconnect method.
 type SseProtocolClientOpenReconnectOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolClientRetryOptions contains the optional parameters for the SseProtocolClient.Retry method.
+// SseProtocolClientOpenRetryOptions contains the optional parameters for the SseProtocolClient.OpenRetry method.
 type SseProtocolClientOpenRetryOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolDataClientWithEnvelopeOptions contains the optional parameters for the SseProtocolDataClient.WithEnvelope method.
+// SseProtocolDataClientOpenWithEnvelopeOptions contains the optional parameters for the SseProtocolDataClient.OpenWithEnvelope
+// method.
 type SseProtocolDataClientOpenWithEnvelopeOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseProtocolDataClientWithoutEnvelopeOptions contains the optional parameters for the SseProtocolDataClient.WithoutEnvelope
+// SseProtocolDataClientOpenWithoutEnvelopeOptions contains the optional parameters for the SseProtocolDataClient.OpenWithoutEnvelope
 // method.
 type SseProtocolDataClientOpenWithoutEnvelopeOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseRetrieveClientStreamOptions contains the optional parameters for the SseRetrieveClient.Stream method.
+// SseRetrieveClientOpenStreamOptions contains the optional parameters for the SseRetrieveClient.OpenStream method.
 type SseRetrieveClientOpenStreamOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
 
-// SseUnnamedClientReceiveOptions contains the optional parameters for the SseUnnamedClient.Receive method.
+// SseUnnamedClientOpenReceiveOptions contains the optional parameters for the SseUnnamedClient.OpenReceive method.
 type SseUnnamedClientOpenReceiveOptions struct {
-	// placeholder for future optional parameters
+	// Sets the Last-Event-ID request header. Use only when the service supports resuming from an event ID. The default is empty,
+	// which omits the header. This option does not enable automatic reconnection.
+	LastEventID string
 }
