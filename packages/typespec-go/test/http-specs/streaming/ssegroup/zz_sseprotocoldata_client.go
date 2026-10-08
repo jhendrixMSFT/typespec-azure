@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"io"
 	"net/http"
 )
 
@@ -30,13 +31,17 @@ func (client *SseProtocolDataClient) OpenWithEnvelope(ctx context.Context, optio
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	resp, err := client.withEnvelope(ctx, options)
-	if err != nil {
-		return SseProtocolDataClientOpenWithEnvelopeResponse{}, err
+	connectionOptions := SseProtocolDataClientOpenWithEnvelopeOptions{}
+	if options != nil {
+		connectionOptions = *options
 	}
-	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[DataEvents]{
+	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
+		connectionOptions.LastEventID = lastEventID
+		return client.withEnvelope(ctx, &connectionOptions)
+	}
+	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[DataEvents]{
 		Decode: decodeDataEvents,
-	}, nil)
+	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolDataClientOpenWithEnvelopeResponse{}, err
 	}
@@ -44,7 +49,7 @@ func (client *SseProtocolDataClient) OpenWithEnvelope(ctx context.Context, optio
 }
 
 // withEnvelope opens a connection for the OpenWithEnvelope stream.
-func (client *SseProtocolDataClient) withEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithEnvelopeOptions) (*http.Response, error) {
+func (client *SseProtocolDataClient) withEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithEnvelopeOptions) (io.ReadCloser, error) {
 	req, err := client.withEnvelopeCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -53,13 +58,7 @@ func (client *SseProtocolDataClient) withEnvelope(ctx context.Context, options *
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
+	return runtime.SSEResponse(httpResp, err, http.StatusOK)
 }
 
 // withEnvelopeCreateRequest creates the OpenWithEnvelope request.
@@ -84,13 +83,17 @@ func (client *SseProtocolDataClient) OpenWithoutEnvelope(ctx context.Context, op
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	resp, err := client.withoutEnvelope(ctx, options)
-	if err != nil {
-		return SseProtocolDataClientOpenWithoutEnvelopeResponse{}, err
+	connectionOptions := SseProtocolDataClientOpenWithoutEnvelopeOptions{}
+	if options != nil {
+		connectionOptions = *options
 	}
-	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[DataEvents]{
+	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
+		connectionOptions.LastEventID = lastEventID
+		return client.withoutEnvelope(ctx, &connectionOptions)
+	}
+	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[DataEvents]{
 		Decode: decodeDataEvents,
-	}, nil)
+	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolDataClientOpenWithoutEnvelopeResponse{}, err
 	}
@@ -98,7 +101,7 @@ func (client *SseProtocolDataClient) OpenWithoutEnvelope(ctx context.Context, op
 }
 
 // withoutEnvelope opens a connection for the OpenWithoutEnvelope stream.
-func (client *SseProtocolDataClient) withoutEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithoutEnvelopeOptions) (*http.Response, error) {
+func (client *SseProtocolDataClient) withoutEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithoutEnvelopeOptions) (io.ReadCloser, error) {
 	req, err := client.withoutEnvelopeCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -107,13 +110,7 @@ func (client *SseProtocolDataClient) withoutEnvelope(ctx context.Context, option
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
+	return runtime.SSEResponse(httpResp, err, http.StatusOK)
 }
 
 // withoutEnvelopeCreateRequest creates the OpenWithoutEnvelope request.

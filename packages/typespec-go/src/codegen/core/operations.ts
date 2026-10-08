@@ -191,7 +191,11 @@ export function generateOperations(
       }
 
       opText += createRequestHandler(azureARM, method, imports, indent);
-      if (method.kind !== "lroMethod" && method.kind !== "sseMethod" && needsResponseHandler(method)) {
+      if (
+        method.kind !== "lroMethod" &&
+        method.kind !== "sseMethod" &&
+        needsResponseHandler(method)
+      ) {
         opText += createResponseHandler(method, imports, indent);
       }
       if (
@@ -833,7 +837,11 @@ function generateOperation(
   return text;
 }
 
-function emitFakeAndSpanSupport(method: go.MethodType, options: go.Options, indent: helpers.Indentation): string {
+function emitFakeAndSpanSupport(
+  method: go.MethodType,
+  options: go.Options,
+  indent: helpers.Indentation,
+): string {
   let text = "";
   let operationName = `"${method.receiver.type.name}.${method.name}"`;
   if (options["generate-fakes"] && options["inject-spans"]) {
@@ -1077,24 +1085,58 @@ function generateLROBeginMethod(
   return text;
 }
 
-function emitSseBody(method: go.SseMethod, imports: ImportManager, indent: helpers.Indentation): string {
-  const params = new Array<string>("ctx");
-  for (const param of helpers.getMethodParameters(method)) {
-    params.push(param.name);
-  }
-  let body = `${indent.get()}resp, err := client.${method.naming.operationMethod}(${params.join(", ")})\n`;
-  body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
+function emitSseBody(
+  method: go.SseMethod,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
+  const lastEventID = getSseLastEventID(method);
+  const usedNames = new Set(helpers.getMethodParameters(method).map((param) => param.name));
+  const variableName = (base: string): string => {
+    let name = base;
+    let suffix = 0;
+    while (usedNames.has(name)) {
+      name = `${base}${++suffix}`;
+    }
+    usedNames.add(name);
+    return name;
+  };
+  const optionsCopy = variableName("connectionOptions");
+  const connect = variableName("connect");
+  const cursor = variableName("lastEventID");
+  const reader = variableName("reader");
+  const optionsName = method.optionalParamsGroup.name;
+  let body = `${indent.get()}${optionsCopy} := ${method.optionalParamsGroup.groupName}{}\n`;
+  body += `${indent.get()}${helpers.buildIfBlock(indent, {
+    condition: `${optionsName} != nil`,
+    body: (indent) => `${indent.get()}${optionsCopy} = *${optionsName}\n`,
+  })}\n`;
+  imports.add("io");
+  body += `${indent.get()}${connect} := func(ctx context.Context, ${cursor} string) (io.ReadCloser, error) {\n`;
+  body += `${indent.push().get()}${optionsCopy}.${lastEventID.name} = ${cursor}\n`;
+  body += `${indent.get()}return client.${method.naming.operationMethod}(${helpers.getCreateRequestParameters(method, undefined, `&${optionsCopy}`)})\n`;
+  body += `${indent.pop().get()}}\n`;
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
   if (!method.returns.result || method.returns.result.kind !== "sseResult") {
     throw new Error("missing result");
   }
-  body += `${indent.get()}reader, err := streaming.NewEventReader(resp, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
+  body += `${indent.get()}${reader}, err := streaming.NewEventReader(ctx, ${connect}, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
   body += `${indent.push().get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
-  body += `${indent.pop().get()}}, nil)\n`;
+  body += `${indent.pop().get()}}, &streaming.EventReaderOptions{LastEventID: ${optionsCopy}.${lastEventID.name}})\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
   // TODO: response headers
-  body += `${indent.get()}return ${method.returns.name}{Stream: reader}, nil\n`;
+  body += `${indent.get()}return ${method.returns.name}{Stream: ${reader}}, nil\n`;
   return body;
+}
+
+function getSseLastEventID(method: go.SseMethod): go.SseLastEventIDParameter {
+  const lastEventID = method.optionalParamsGroup.params.find(
+    (param) => param.kind === "sseLastEventIDParam",
+  );
+  if (!lastEventID) {
+    throw new CodegenError("InternalError", "missing SSE last event ID option");
+  }
+  return lastEventID;
 }
 
 function generateSseOperation(
@@ -1105,17 +1147,12 @@ function generateSseOperation(
   const params = getAPIParameters(method, imports);
 
   let text = `// ${method.naming.operationMethod} opens a connection for the ${method.name} stream.\n`;
-  text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (*http.Response, error) {\n`;
+  text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (io.ReadCloser, error) {\n`;
 
   text += `${indent.get()}req, err := client.${method.naming.requestMethod}(${helpers.getCreateRequestParameters(method)})\n`;
   text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
 
-  const lastEventID = method.optionalParamsGroup.params.find(
-    (param) => param.kind === "sseLastEventIDParam",
-  );
-  if (!lastEventID) {
-    throw new CodegenError("InternalError", "missing SSE last event ID option");
-  }
+  const lastEventID = getSseLastEventID(method);
   const optionsName = method.optionalParamsGroup.name;
   text += `${indent.get()}${helpers.buildIfBlock(indent, {
     condition: `${optionsName} != nil && ${optionsName}.${lastEventID.name} != ""`,
@@ -1124,14 +1161,7 @@ function generateSseOperation(
   })}\n`;
 
   text += `${indent.get()}httpResp, err := client.internal.Pipeline().Do(req)\n`;
-  text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
-
-  text += `${indent.get()}${helpers.buildIfBlock(indent, {
-    condition: `!runtime.HasStatusCode(httpResp, ${helpers.formatStatusCodes(method.httpStatusCodes)})`,
-    body: (indent) => `${indent.get()}return nil, runtime.NewResponseError(httpResp)\n`,
-  })}\n`;
-
-  text += `${indent.get()}return httpResp, nil\n`;
-  text += '}\n\n'; // end func
+  text += `${indent.get()}return runtime.SSEResponse(httpResp, err, ${helpers.formatStatusCodes(method.httpStatusCodes)})\n`;
+  text += "}\n\n"; // end func
   return text;
 }
