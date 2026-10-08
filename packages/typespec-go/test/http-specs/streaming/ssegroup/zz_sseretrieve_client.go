@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"io"
 	"net/http"
 )
 
@@ -29,13 +30,17 @@ func (client *SseRetrieveClient) OpenStream(ctx context.Context, request Retriev
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	resp, err := client.stream(ctx, request, options)
-	if err != nil {
-		return SseRetrieveClientOpenStreamResponse{}, err
+	connectionOptions := SseRetrieveClientOpenStreamOptions{}
+	if options != nil {
+		connectionOptions = *options
 	}
-	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[RetrievalEvents]{
+	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
+		connectionOptions.LastEventID = lastEventID
+		return client.stream(ctx, request, &connectionOptions)
+	}
+	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[RetrievalEvents]{
 		Decode: decodeRetrievalEvents,
-	}, nil)
+	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseRetrieveClientOpenStreamResponse{}, err
 	}
@@ -43,7 +48,7 @@ func (client *SseRetrieveClient) OpenStream(ctx context.Context, request Retriev
 }
 
 // stream opens a connection for the OpenStream stream.
-func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (*http.Response, error) {
+func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (io.ReadCloser, error) {
 	req, err := client.streamCreateRequest(ctx, request, options)
 	if err != nil {
 		return nil, err
@@ -52,13 +57,7 @@ func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRe
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
+	return runtime.SSEResponse(httpResp, err, http.StatusOK)
 }
 
 // streamCreateRequest creates the OpenStream request.

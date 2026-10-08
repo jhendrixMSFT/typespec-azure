@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"io"
 	"net/http"
 )
 
@@ -29,13 +30,17 @@ func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnn
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
 	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
 	defer func() { endSpan(err) }()
-	resp, err := client.receive(ctx, options)
-	if err != nil {
-		return SseUnnamedClientOpenReceiveResponse{}, err
+	connectionOptions := SseUnnamedClientOpenReceiveOptions{}
+	if options != nil {
+		connectionOptions = *options
 	}
-	reader, err := streaming.NewEventReader(resp, streaming.EventHandler[UnnamedEvents]{
+	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
+		connectionOptions.LastEventID = lastEventID
+		return client.receive(ctx, &connectionOptions)
+	}
+	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[UnnamedEvents]{
 		Decode: decodeUnnamedEvents,
-	}, nil)
+	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseUnnamedClientOpenReceiveResponse{}, err
 	}
@@ -43,7 +48,7 @@ func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnn
 }
 
 // receive opens a connection for the OpenReceive stream.
-func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (*http.Response, error) {
+func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (io.ReadCloser, error) {
 	req, err := client.receiveCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -52,13 +57,7 @@ func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamed
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
 	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
+	return runtime.SSEResponse(httpResp, err, http.StatusOK)
 }
 
 // receiveCreateRequest creates the OpenReceive request.
