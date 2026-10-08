@@ -68,6 +68,57 @@ func TestSseDoesNotAutomaticallyReconnect(t *testing.T) {
 	}
 }
 
+func TestSseInitialCheckpointWithoutWireID(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		options *ssegroup.SseProtocolClientOpenIDOptions
+		wantID  string
+	}{
+		{name: "nil options"},
+		{name: "zero options", options: &ssegroup.SseProtocolClientOpenIDOptions{}},
+		{name: "explicit empty", options: &ssegroup.SseProtocolClientOpenIDOptions{LastEventID: ""}},
+		{name: "checkpoint", options: &ssegroup.SseProtocolClientOpenIDOptions{LastEventID: "saved-event"}, wantID: "saved-event"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			headers := make(chan http.Header, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if requests.Add(1) == 1 {
+					headers <- r.Header.Clone()
+				}
+				w.Header().Set("Content-Type", "text/event-stream")
+				fmt.Fprint(w, "event: message\ndata: {\"message\":\"hello\"}\n\n")
+			}))
+			t.Cleanup(server.Close)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			t.Cleanup(cancel)
+			root, err := ssegroup.NewSseClientWithNoCredential(server.URL, nil)
+			require.NoError(t, err)
+			resp, err := root.NewSseProtocolClient().OpenID(ctx, tc.options)
+			require.NoError(t, err)
+			require.NotNil(t, resp.Stream)
+			t.Cleanup(func() { require.NoError(t, resp.Stream.Close()) })
+			require.EqualValues(t, 1, requests.Load(), "the initial request must be eager")
+			header := <-headers
+			require.Equal(t, tc.wantID, header.Get("Last-Event-ID"))
+			if tc.wantID == "" {
+				require.NotContains(t, header, "Last-Event-Id")
+			}
+			require.Equal(t, tc.wantID, resp.Stream.LastEventID())
+			event, err := resp.Stream.Next()
+			require.NoError(t, err)
+			require.NotNil(t, event.ProtocolInfo)
+			require.Equal(t, "hello", *event.ProtocolInfo.Message)
+			require.Equal(t, tc.wantID, resp.Stream.LastEventID())
+			for range 2 {
+				_, err = resp.Stream.Next()
+				require.ErrorIs(t, err, io.EOF)
+			}
+			require.EqualValues(t, 1, requests.Load())
+		})
+	}
+}
+
 func TestSseResumeFromCheckpoint(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

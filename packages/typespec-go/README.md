@@ -35,6 +35,16 @@ options:
 
 ## Server-sent event streams
 
+SSE operations eagerly open the initial connection through a connector passed to
+`streaming.NewEventReader`. Connection failures, unexpected HTTP status codes, and
+invalid SSE content types are returned by the operation. The connector uses
+`runtime.SSEResponse` with the operation's authored success status codes; HTTP 204
+signals stream completion.
+
+This API requires an azcore version that provides `runtime.SSEResponse` and the
+connector-based `streaming.NewEventReader`. Until that API is released, use a local
+Go module `replace` directive for azcore.
+
 Generated SSE operation options include a `LastEventID` string. A non-empty value
 sets the `Last-Event-ID` request header; the default empty value omits the header.
 Use this option only when the service supports resuming from an event ID. Its
@@ -43,6 +53,10 @@ presence does not imply that the service supports resumption.
 Streams do not automatically reconnect. Reaching the end of the response body
 ends the stream with `io.EOF`, even if events contain IDs, and read errors are
 returned to the caller.
+
+The operation context governs the stream's lifetime. Reads can block indefinitely
+if the service sends no events and the context has no deadline. Canceling the
+context or closing the reader interrupts a blocked read.
 
 To resume, save the reader's `LastEventID()` after successfully processing an
 event, close the reader when finished, and call the operation again with that
