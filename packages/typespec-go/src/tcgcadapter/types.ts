@@ -1556,10 +1556,12 @@ export class TypeAdapter {
       recursiveIndexClient(sdkClient);
     }
 
-    // unions can also be referenced from model fields, never appearing
+    // unions can also be referenced from model fields or additional properties, never appearing
     // directly in a method signature
     for (const sdkModel of this.ctx.sdkPackage.models) {
-      for (const property of sdkModel.properties) {
+      const { props, addlProps } = aggregateProperties(this.ctx, sdkModel);
+      recursiveAddValueTypeUsage(addlProps);
+      for (const property of props) {
         recursiveAddValueTypeUsage(property.type);
       }
     }
