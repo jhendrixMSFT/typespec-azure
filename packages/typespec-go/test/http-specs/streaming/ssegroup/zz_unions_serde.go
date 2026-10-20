@@ -44,6 +44,9 @@ func decodeProtocolEvents(frame streaming.EventFrame) (ProtocolEvents, bool, err
 
 // decodeResponseEvents maps an SSE event to a ResponseEvents value. The terminal "[DONE]" event ends the stream.
 func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, error) {
+	if s := string(frame.Data); s == "[DONE]" {
+		return ResponseEvents{}, false, io.EOF
+	}
 	switch frame.Type {
 	case "responseCreated":
 		var v ResponseCreated
@@ -58,15 +61,15 @@ func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, err
 		}
 		return ResponseEvents{ResponseDelta: &v}, false, nil
 	default:
-		if s := string(frame.Data); s == "[DONE]" {
-			return ResponseEvents{}, false, io.EOF
-		}
 		return ResponseEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
 }
 
 // decodeRetrievalEvents maps an SSE event to a RetrievalEvents value. The terminal "[DONE]" event ends the stream.
 func decodeRetrievalEvents(frame streaming.EventFrame) (RetrievalEvents, bool, error) {
+	if s := string(frame.Data); s == "[DONE]" {
+		return RetrievalEvents{}, false, io.EOF
+	}
 	switch frame.Type {
 	case "finalResult":
 		var v FinalResult
@@ -81,9 +84,6 @@ func decodeRetrievalEvents(frame streaming.EventFrame) (RetrievalEvents, bool, e
 		}
 		return RetrievalEvents{PartialResult: &v}, false, nil
 	default:
-		if s := string(frame.Data); s == "[DONE]" {
-			return RetrievalEvents{}, false, io.EOF
-		}
 		return RetrievalEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
 }

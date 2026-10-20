@@ -36,7 +36,8 @@ func (client *SseRetrieveClient) OpenStream(ctx context.Context, request Retriev
 	}
 	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
 		connectionOptions.LastEventID = lastEventID
-		return client.stream(ctx, request, &connectionOptions)
+		httpResp, err := client.stream(ctx, request, &connectionOptions)
+		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
 	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[RetrievalEvents]{
 		Decode: decodeRetrievalEvents,
@@ -48,7 +49,7 @@ func (client *SseRetrieveClient) OpenStream(ctx context.Context, request Retriev
 }
 
 // stream opens a connection for the OpenStream stream.
-func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (io.ReadCloser, error) {
+func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRequest, options *SseRetrieveClientOpenStreamOptions) (*http.Response, error) {
 	req, err := client.streamCreateRequest(ctx, request, options)
 	if err != nil {
 		return nil, err
@@ -56,8 +57,7 @@ func (client *SseRetrieveClient) stream(ctx context.Context, request RetrievalRe
 	if options != nil && options.LastEventID != "" {
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	return runtime.SSEResponse(httpResp, err, http.StatusOK)
+	return client.internal.Pipeline().Do(req)
 }
 
 // streamCreateRequest creates the OpenStream request.

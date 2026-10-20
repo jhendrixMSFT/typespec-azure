@@ -37,7 +37,8 @@ func (client *SseProtocolDataClient) OpenWithEnvelope(ctx context.Context, optio
 	}
 	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
 		connectionOptions.LastEventID = lastEventID
-		return client.withEnvelope(ctx, &connectionOptions)
+		httpResp, err := client.withEnvelope(ctx, &connectionOptions)
+		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
 	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[DataEvents]{
 		Decode: decodeDataEvents,
@@ -49,7 +50,7 @@ func (client *SseProtocolDataClient) OpenWithEnvelope(ctx context.Context, optio
 }
 
 // withEnvelope opens a connection for the OpenWithEnvelope stream.
-func (client *SseProtocolDataClient) withEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithEnvelopeOptions) (io.ReadCloser, error) {
+func (client *SseProtocolDataClient) withEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithEnvelopeOptions) (*http.Response, error) {
 	req, err := client.withEnvelopeCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -57,8 +58,7 @@ func (client *SseProtocolDataClient) withEnvelope(ctx context.Context, options *
 	if options != nil && options.LastEventID != "" {
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	return runtime.SSEResponse(httpResp, err, http.StatusOK)
+	return client.internal.Pipeline().Do(req)
 }
 
 // withEnvelopeCreateRequest creates the OpenWithEnvelope request.
@@ -89,7 +89,8 @@ func (client *SseProtocolDataClient) OpenWithoutEnvelope(ctx context.Context, op
 	}
 	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
 		connectionOptions.LastEventID = lastEventID
-		return client.withoutEnvelope(ctx, &connectionOptions)
+		httpResp, err := client.withoutEnvelope(ctx, &connectionOptions)
+		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
 	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[DataEvents]{
 		Decode: decodeDataEvents,
@@ -101,7 +102,7 @@ func (client *SseProtocolDataClient) OpenWithoutEnvelope(ctx context.Context, op
 }
 
 // withoutEnvelope opens a connection for the OpenWithoutEnvelope stream.
-func (client *SseProtocolDataClient) withoutEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithoutEnvelopeOptions) (io.ReadCloser, error) {
+func (client *SseProtocolDataClient) withoutEnvelope(ctx context.Context, options *SseProtocolDataClientOpenWithoutEnvelopeOptions) (*http.Response, error) {
 	req, err := client.withoutEnvelopeCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -109,8 +110,7 @@ func (client *SseProtocolDataClient) withoutEnvelope(ctx context.Context, option
 	if options != nil && options.LastEventID != "" {
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	return runtime.SSEResponse(httpResp, err, http.StatusOK)
+	return client.internal.Pipeline().Do(req)
 }
 
 // withoutEnvelopeCreateRequest creates the OpenWithoutEnvelope request.

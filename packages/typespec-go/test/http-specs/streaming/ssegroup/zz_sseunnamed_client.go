@@ -36,7 +36,8 @@ func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnn
 	}
 	connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error) {
 		connectionOptions.LastEventID = lastEventID
-		return client.receive(ctx, &connectionOptions)
+		httpResp, err := client.receive(ctx, &connectionOptions)
+		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
 	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[UnnamedEvents]{
 		Decode: decodeUnnamedEvents,
@@ -48,7 +49,7 @@ func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnn
 }
 
 // receive opens a connection for the OpenReceive stream.
-func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (io.ReadCloser, error) {
+func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamedClientOpenReceiveOptions) (*http.Response, error) {
 	req, err := client.receiveCreateRequest(ctx, options)
 	if err != nil {
 		return nil, err
@@ -56,8 +57,7 @@ func (client *SseUnnamedClient) receive(ctx context.Context, options *SseUnnamed
 	if options != nil && options.LastEventID != "" {
 		req.Raw().Header.Set("Last-Event-ID", options.LastEventID)
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	return runtime.SSEResponse(httpResp, err, http.StatusOK)
+	return client.internal.Pipeline().Do(req)
 }
 
 // receiveCreateRequest creates the OpenReceive request.

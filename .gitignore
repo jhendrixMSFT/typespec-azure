@@ -238,6 +238,7 @@ packages/typespec-go/test/**/testdata
 # them even though test/**/go.mod and test/**/go.sum are normally ignored.
 !packages/typespec-go/test/local/containingmod/go.mod
 !packages/typespec-go/test/local/containingmod/go.sum
+!packages/typespec-go/test/local/sseregression/go.mod
 # java emitter
 # Emitter TS sources copied from core/packages/http-client-java/emitter at build
 # time (only src/options.ts is committed).

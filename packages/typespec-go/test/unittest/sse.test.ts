@@ -13,6 +13,167 @@ describe("SSE connectors and resumption options", () => {
     @route("/events") @get op receive(): SSEStream<Events>;
   `;
 
+  it.each([false, true])("matches all unnamed object variants (dual use: %s)", async (dualUse) => {
+    const files = await emitGoFor(`
+      using TypeSpec.SSE;
+      @service namespace Test;
+      model General { kind: string; message: string; details: string; }
+      model Connected { kind: "connected"; message: string; }
+      model Disconnected { kind: "disconnected"; message: string; }
+      model Named { note: string; }
+      @TypeSpec.Events.events union Events {
+        General,
+        Connected,
+        @terminalEvent Disconnected,
+        named: Named,
+        @TypeSpec.Events.contentType("text/plain") @terminalEvent "[DONE]",
+      }
+      @route("/events") @get op receive(): SSEStream<Events>;
+      ${dualUse ? '@route("/json") @post op roundTrip(@body body: Events): Events;' : ""}
+    `);
+    const serde = files.get("zz_unions_serde.go")!;
+    expect(serde).toContain('hasLiteralValue[string](rawMsg, "kind", "connected")');
+    expect(serde).toContain('hasLiteralValue[string](rawMsg, "kind", "disconnected")');
+    expect(serde.indexOf("return Events{Connected: &v}")).toBeLessThan(
+      serde.indexOf("return Events{General: &v}"),
+    );
+    expect(serde).toContain("return Events{Connected: &v}, false, nil");
+    expect(serde).toContain("return Events{Disconnected: &v}, true, nil");
+    expect(serde).toContain("return Events{General: &v}, false, nil");
+    expect(serde).toMatch(/case "named":[\s\S]*return Events\{Named: &v\}, false, nil/);
+    expect(serde).toContain("could not determine variant for Events");
+    expect(serde.match(/func hasRequiredFields\(/g)).toHaveLength(1);
+    expect(serde.match(/func hasLiteralValue\[/g)).toHaveLength(1);
+    if (dualUse) {
+      expect(serde).toContain("UnmarshalJSON(data []byte)");
+      expect(serde).toContain("err = json.Unmarshal(data, &e.Connected)");
+    }
+  });
+
+  it("probes envelope payloads and preserves explicit message event dispatch", async () => {
+    const files = await emitGoFor(`
+      using TypeSpec.SSE;
+      @service namespace Test;
+      model Connected { kind: "connected"; message: string; }
+      model Disconnected { kind: "disconnected"; message: string; }
+      model ConnectedEnvelope { @TypeSpec.Events.data payload: Connected; }
+      model DisconnectedEnvelope { @TypeSpec.Events.data payload: Disconnected; }
+      model Named { note: string; }
+      @TypeSpec.Events.events union Events {
+        ConnectedEnvelope,
+        @terminalEvent DisconnectedEnvelope,
+        message: Named,
+      }
+      @route("/events") @get op receive(): SSEStream<Events>;
+    `);
+    const serde = files.get("zz_unions_serde.go")!;
+    expect(serde).toContain('case "":');
+    expect(serde).toContain('hasLiteralValue[string](rawMsg, "kind", "connected")');
+    expect(serde).not.toContain('hasRequiredFields(rawMsg, "payload")');
+    expect(serde).toContain(
+      "return Events{ConnectedEnvelope: &ConnectedEnvelope{Payload: &v}}, false, nil",
+    );
+    expect(serde).toContain(
+      "return Events{DisconnectedEnvelope: &DisconnectedEnvelope{Payload: &v}}, true, nil",
+    );
+    expect(serde).toMatch(/case "message":[\s\S]*return Events\{Named: &v\}, false, nil/);
+  });
+
+  it("rejects ambiguous unnamed non-object payloads rather than choosing one", async () => {
+    await expect(
+      emitGoFor(`
+      using TypeSpec.SSE;
+      @service namespace Test;
+      model Info { message: string; }
+      @TypeSpec.Events.events union Events {
+        Info,
+        @TypeSpec.Events.contentType("text/plain") string,
+      }
+      @route("/events") @get op receive(): SSEStream<Events>;
+    `),
+    ).rejects.toThrow("multiple unnamed events in union Events require JSON object payloads");
+  });
+
+  it("checks unnamed literal sentinels before decoding unnamed JSON events", async () => {
+    const files = await emitGoFor(`
+      using TypeSpec.SSE;
+      @service namespace Test;
+      model Info { message: string; }
+      @TypeSpec.Events.events union Events {
+        @TypeSpec.Events.contentType("application/json") Info,
+        @TypeSpec.Events.contentType("text/plain") @terminalEvent "[DONE]",
+      }
+      @route("/events") @get op receive(): SSEStream<Events>;
+    `);
+    const serde = files.get("zz_unions_serde.go")!;
+    expect(serde).toContain("return Events{}, false, io.EOF");
+    expect(serde.indexOf('s == "[DONE]"')).toBeLessThan(serde.indexOf("json.Unmarshal("));
+  });
+
+  it.each([false, true])("retains unnamed terminal models (dual use: %s)", async (dualUse) => {
+    const files = await emitGoFor(
+      `
+      using TypeSpec.SSE;
+      @service namespace Test;
+      model Completion { total: int32; }
+      @TypeSpec.Events.events union Events {
+        @TypeSpec.Events.contentType("application/json") @terminalEvent Completion,
+      }
+      @route("/events") @get op receive(): SSEStream<Events>;
+      ${dualUse ? '@route("/json") @post op roundTrip(@body body: Events): Events;' : ""}
+    `,
+      { "generate-fakes": true },
+    );
+    expect(files.get("zz_unions.go")).toContain("Completion *Completion");
+    const serde = files.get("zz_unions_serde.go");
+    expect(serde).toContain("json.Unmarshal(frame.Data, &v)");
+    expect(serde).toContain("return Events{Completion: &v}, true, nil");
+    expect(files.get("fake/zz_sse_encoders.go")).toContain("e.Completion");
+    if (dualUse) {
+      expect(serde).toContain("UnmarshalJSON(data []byte)");
+    }
+  });
+
+  it("populates modeled initial SSE response headers", async () => {
+    const files = await emitGoFor(
+      spec
+        .replace(
+          '@route("/events")',
+          'model EventResponse extends SSEStream<Events> { @header("x-stream-session") sessionToken: string; } @route("/events")',
+        )
+        .replace("receive(): SSEStream<Events>", "receive(): EventResponse"),
+    );
+    const client = files.get("zz_test_client.go");
+    expect(files.get("zz_responses.go")).toContain("SessionToken *string");
+    expect(client).toContain('Header.Get("X-Stream-Session")');
+    expect(client).toMatch(/\.SessionToken\s*=/);
+    expect(client).toContain("initialResponse = httpResp");
+    expect(client).toContain("client.receiveHandleResponse(initialResponse)");
+    expect(client).toContain("_ = reader.Close()");
+    expect(client).toContain("result.Stream = reader");
+    expect(client).not.toContain("WithCaptureResponse");
+    expect(client).not.toContain("UnmarshalAsJSON");
+  });
+
+  it("uses normal header parsing and collision-safe response locals", async () => {
+    const files = await emitGoFor(
+      spec
+        .replace(
+          '@route("/events")',
+          'model EventResponse extends SSEStream<Events> { @header("x-stream-count") count: int32; @header("x-stream-time") timestamp: utcDateTime; } @route("/events")',
+        )
+        .replace("receive()", "receive(@query initialResponse: string, @query result: string)")
+        .replace("): SSEStream<Events>", "): EventResponse"),
+    );
+    const client = files.get("zz_test_client.go");
+    expect(client).toContain("var initialResponse1 *http.Response");
+    expect(client).toContain("result1, err := client.receiveHandleResponse(initialResponse1)");
+    expect(client).toContain("strconv.ParseInt(val, 10, 32)");
+    expect(client).toContain("time.Parse(time.RFC1123, val)");
+    expect(client).toContain("result.Count = &count");
+    expect(client).toContain("result.Timestamp = &timestamp");
+  });
+
   it("emits a last event ID header option without automatic reconnection", async () => {
     const files = await emitGoFor(spec, { "generate-fakes": true });
     const options = files.get("zz_options.go");
@@ -27,13 +188,13 @@ describe("SSE connectors and resumption options", () => {
       "connect := func(ctx context.Context, lastEventID string) (io.ReadCloser, error)",
     );
     expect(client).toContain("connectionOptions.LastEventID = lastEventID");
-    expect(client).toContain("return client.receive(ctx, &connectionOptions)");
+    expect(client).toContain("httpResp, err := client.receive(ctx, &connectionOptions)");
     expect(client).toContain("streaming.NewEventReader(ctx, connect,");
     expect(client).toContain(
       "&streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID}",
     );
     expect(client).toContain(
-      "receive(ctx context.Context, options *TestClientOpenReceiveOptions) (io.ReadCloser, error)",
+      "receive(ctx context.Context, options *TestClientOpenReceiveOptions) (*http.Response, error)",
     );
     expect(client).toContain("return runtime.SSEResponse(httpResp, err, http.StatusOK)");
     expect(client).toContain("runtime.SkipBodyDownload(req)");
@@ -59,7 +220,7 @@ describe("SSE connectors and resumption options", () => {
     expect(client).toContain('reqQP.Set("lastEventID"');
     expect(client).toContain("connectionOptions = *opts");
     expect(client).toContain("connectionOptions.LastEventID1 = lastEventID");
-    expect(client).toContain("return client.receive(ctx, options, &connectionOptions)");
+    expect(client).toContain("httpResp, err := client.receive(ctx, options, &connectionOptions)");
     expect(client).toContain(
       "&streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID1}",
     );
@@ -81,7 +242,7 @@ describe("SSE connectors and resumption options", () => {
     );
     expect(client).toContain("connectionOptions2.LastEventID = lastEventID1");
     expect(client).toContain(
-      "return client.receive(ctx, connectionOptions, connectionOptions1, connect, lastEventID, reader, &connectionOptions2)",
+      "httpResp, err := client.receive(ctx, connectionOptions, connectionOptions1, connect, lastEventID, reader, &connectionOptions2)",
     );
     expect(client).toContain("reader1, err := streaming.NewEventReader(ctx, connect1,");
     expect(client).toContain("return TestClientOpenReceiveResponse{Stream: reader1}, nil");
@@ -97,7 +258,7 @@ describe("SSE connectors and resumption options", () => {
         ),
     );
     const client = files.get("zz_test_client.go");
-    expect(client).toContain("return client.receive(ctx, request, &connectionOptions)");
+    expect(client).toContain("httpResp, err := client.receive(ctx, request, &connectionOptions)");
     expect(client).toContain("connectionOptions = *options");
     expect(client).toContain("runtime.MarshalAsJSON(req, request)");
     expect(client).toContain('reqQP.Set("filter"');
@@ -127,7 +288,7 @@ describe("SSE connectors and resumption options", () => {
     );
     expect(client).toContain("ctx, endSpan := runtime.StartSpan(ctx, operationName,");
     expect(client).toContain("streaming.NewEventReader(ctx, connect,");
-    expect(client).toContain("return client.receive(ctx, &connectionOptions)");
+    expect(client).toContain("httpResp, err := client.receive(ctx, &connectionOptions)");
     expect(client).not.toContain("resp.Request.Context()");
   });
 

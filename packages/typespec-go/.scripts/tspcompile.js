@@ -124,6 +124,9 @@ generate("gogenerate", gogenerate, "test/local/gogenerate", [
 const fakeserver = pkgRoot + "test/tsp/FakeServer";
 generate("fakeserver", fakeserver, "test/local/fakeserver");
 
+const sseregression = pkgRoot + "test/tsp/SseRegression";
+generate("sseregression", sseregression, "test/local/sseregression");
+
 const containingmod = pkgRoot + "test/tsp/ContainingMod";
 generate("containingmod", containingmod, "test/local/containingmod/subpkg", [
   "containing-module=containingmod",

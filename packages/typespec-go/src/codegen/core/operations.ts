@@ -191,11 +191,7 @@ export function generateOperations(
       }
 
       opText += createRequestHandler(azureARM, method, imports, indent);
-      if (
-        method.kind !== "lroMethod" &&
-        method.kind !== "sseMethod" &&
-        needsResponseHandler(method)
-      ) {
+      if (method.kind !== "lroMethod" && needsResponseHandler(method)) {
         opText += createResponseHandler(method, imports, indent);
       }
       if (
@@ -866,7 +862,7 @@ function emitFakeAndSpanSupport(
  * @returns true if the method requires a response handler
  */
 function needsResponseHandler(method: go.MethodType): boolean {
-  if (method.kind === "lroMethod" || method.kind === "sseMethod") {
+  if (method.kind === "lroMethod") {
     return false;
   }
 
@@ -1105,16 +1101,29 @@ function emitSseBody(
   const connect = variableName("connect");
   const cursor = variableName("lastEventID");
   const reader = variableName("reader");
+  const initialResponse = variableName("initialResponse");
+  const result = variableName("result");
+  const hasHeaders = method.returns.headers.length > 0;
   const optionsName = method.optionalParamsGroup.name;
   let body = `${indent.get()}${optionsCopy} := ${method.optionalParamsGroup.groupName}{}\n`;
   body += `${indent.get()}${helpers.buildIfBlock(indent, {
     condition: `${optionsName} != nil`,
     body: (indent) => `${indent.get()}${optionsCopy} = *${optionsName}\n`,
   })}\n`;
+  if (hasHeaders) {
+    body += `${indent.get()}var ${initialResponse} *http.Response\n`;
+  }
   imports.add("io");
   body += `${indent.get()}${connect} := func(ctx context.Context, ${cursor} string) (io.ReadCloser, error) {\n`;
   body += `${indent.push().get()}${optionsCopy}.${lastEventID.name} = ${cursor}\n`;
-  body += `${indent.get()}return client.${method.naming.operationMethod}(${helpers.getCreateRequestParameters(method, undefined, `&${optionsCopy}`)})\n`;
+  body += `${indent.get()}httpResp, err := client.${method.naming.operationMethod}(${helpers.getCreateRequestParameters(method, undefined, `&${optionsCopy}`)})\n`;
+  if (hasHeaders) {
+    body += `${indent.get()}${helpers.buildIfBlock(indent, {
+      condition: `${initialResponse} == nil`,
+      body: (indent) => `${indent.get()}${initialResponse} = httpResp\n`,
+    })}\n`;
+  }
+  body += `${indent.get()}return runtime.SSEResponse(httpResp, err, ${helpers.formatStatusCodes(method.httpStatusCodes)})\n`;
   body += `${indent.pop().get()}}\n`;
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
   if (!method.returns.result || method.returns.result.kind !== "sseResult") {
@@ -1124,8 +1133,18 @@ function emitSseBody(
   body += `${indent.push().get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
   body += `${indent.pop().get()}}, &streaming.EventReaderOptions{LastEventID: ${optionsCopy}.${lastEventID.name}})\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;
-  // TODO: response headers
-  body += `${indent.get()}return ${method.returns.name}{Stream: ${reader}}, nil\n`;
+  if (hasHeaders) {
+    body += `${indent.get()}${result}, err := client.${method.naming.responseMethod}(${initialResponse})\n`;
+    body += `${indent.get()}${helpers.buildIfBlock(indent, {
+      condition: "err != nil",
+      body: (indent) =>
+        `${indent.get()}_ = ${reader}.Close()\n${indent.get()}return ${getZeroReturnValue(method, false)}, err\n`,
+    })}\n`;
+    body += `${indent.get()}${result}.Stream = ${reader}\n`;
+    body += `${indent.get()}return ${result}, nil\n`;
+  } else {
+    body += `${indent.get()}return ${method.returns.name}{Stream: ${reader}}, nil\n`;
+  }
   return body;
 }
 
@@ -1147,7 +1166,7 @@ function generateSseOperation(
   const params = getAPIParameters(method, imports);
 
   let text = `// ${method.naming.operationMethod} opens a connection for the ${method.name} stream.\n`;
-  text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (io.ReadCloser, error) {\n`;
+  text += `func ${helpers.getClientReceiverDefinition(method.receiver)} ${method.naming.operationMethod}(${params.join(", ")}) (*http.Response, error) {\n`;
 
   text += `${indent.get()}req, err := client.${method.naming.requestMethod}(${helpers.getCreateRequestParameters(method)})\n`;
   text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "nil")}\n`;
@@ -1160,8 +1179,7 @@ function generateSseOperation(
       `${indent.get()}req.Raw().Header.Set("Last-Event-ID", ${optionsName}.${lastEventID.name})\n`,
   })}\n`;
 
-  text += `${indent.get()}httpResp, err := client.internal.Pipeline().Do(req)\n`;
-  text += `${indent.get()}return runtime.SSEResponse(httpResp, err, ${helpers.formatStatusCodes(method.httpStatusCodes)})\n`;
+  text += `${indent.get()}return client.internal.Pipeline().Do(req)\n`;
   text += "}\n\n"; // end func
   return text;
 }

@@ -85,8 +85,21 @@ function generateUnionsSerde(pkg: go.PackageContent): string {
   imports.add("encoding/json");
   imports.add("fmt");
 
-  let content = generateSerdeSseType(pkg.unions, imports, indent);
-  content += generateSerdeSumType(pkg.unions, imports, indent);
+  const sse = generateSerdeSseType(pkg.unions, imports, indent);
+  const sum = generateSerdeSumType(pkg.unions, imports, indent);
+  let content = sse.content + sum.content;
+  if (sse.emitProbe || sum.emitProbe) {
+    content += jsonKindProbe;
+  }
+  if (sse.emitFloat || sum.emitFloat) {
+    content += jsonNumberIsFloat;
+  }
+  if (sse.emitRequired || sum.emitRequired) {
+    content += hasRequiredFields;
+  }
+  if (sse.emitLiteral || sum.emitLiteral) {
+    content += hasLiteralValue;
+  }
 
   let text = helpers.contentPreamble(pkg);
   text += imports.text();
@@ -99,10 +112,11 @@ function generateSerdeSumType(
   unions: Array<go.UnionStruct>,
   imports: ImportManager,
   indent: helpers.Indentation,
-): string {
+): unmarshalInfo {
   let emitProbe = false;
   let emitFloat = false;
   let emitRequired = false;
+  let emitLiteral = false;
 
   let content = "";
   for (const goUnion of unions) {
@@ -119,19 +133,10 @@ function generateSerdeSumType(
     emitProbe = emitProbe ? true : result.emitProbe;
     emitFloat = emitFloat ? true : result.emitFloat;
     emitRequired = emitRequired ? true : result.emitRequired;
+    emitLiteral ||= result.emitLiteral;
   }
 
-  if (emitProbe) {
-    content += jsonKindProbe;
-  }
-  if (emitFloat) {
-    content += jsonNumberIsFloat;
-  }
-  if (emitRequired) {
-    content += hasRequiredFields;
-  }
-
-  return content;
+  return { content, emitProbe, emitFloat, emitRequired, emitLiteral };
 }
 
 /**
@@ -193,6 +198,7 @@ interface unmarshalInfo {
   emitFloat: boolean;
   emitProbe: boolean;
   emitRequired: boolean;
+  emitLiteral: boolean;
 }
 
 /**
@@ -249,6 +255,7 @@ function generateUnmarshalJson(
     emitFloat: mixedTypes ? mixedTypes.emitFloat : false,
     emitProbe: mixedTypes ? true : false,
     emitRequired: mixedTypes ? mixedTypes.emitRequired : true,
+    emitLiteral: mixedTypes ? mixedTypes.emitLiteral : hasLiteralFields(goUnion.fields),
   };
 }
 
@@ -269,12 +276,28 @@ function generateUnmarshalObjects(goUnion: go.UnionStruct, indent: helpers.Inden
     body: (indent) => `${indent.get()}return\n`,
   })}\n`;
 
-  const jsonObjects = groupJsonObjects(goUnion);
+  text += generateObjectMatch(
+    goUnion,
+    groupJsonObjects(goUnion.fields),
+    indent,
+    (field, indent) => `${indent.get()}err = json.Unmarshal(data, &${receiver}.${field.name})\n`,
+    (indent) => `${indent.get()}err = errors.New("could not determine variant")\n`,
+  );
+  return text;
+}
 
+function generateObjectMatch(
+  goUnion: go.UnionStruct,
+  jsonObjects: Array<go.UnionField>,
+  indent: helpers.Indentation,
+  onMatch: (field: go.UnionField, indent: helpers.Indentation) => string,
+  onNoMatch: (indent: helpers.Indentation) => string,
+  getType: (field: go.UnionField) => go.WireType = (field) => field.type,
+): string {
   // the codegen below assumes at most one map variant, which it treats
   // as the fallback. a union with multiple maps (e.g. Foo | Record<int32>
   // | Record<string>) would generate incorrect code, so fail instead.
-  if (jsonObjects.filter((field) => field.type.kind === "map").length > 1) {
+  if (jsonObjects.filter((field) => getType(field).kind === "map").length > 1) {
     throw new CodegenError(
       "UnsupportedTsp",
       `union ${goUnion.name} has multiple map variants which is not supported`,
@@ -285,17 +308,25 @@ function generateUnmarshalObjects(goUnion: go.UnionStruct, indent: helpers.Inden
   const elseIfBlocks = new Array<helpers.ifBlock>();
   for (let i = 0; i < jsonObjects.length; ++i) {
     const field = jsonObjects[i];
-    if (field.type.kind === "map") {
+    const type = getType(field);
+    if (type.kind === "map") {
       break;
-    } else if (!go.isPtr(field.type, "model")) {
+    } else if (!go.isPtr(type, "model")) {
       // we already validated this earlier. however it lets
       // the compiler treat field.type as a model type.
-      throw new CodegenError("InternalError", `unexpected union type ${field.type.kind}`);
+      throw new CodegenError("InternalError", `unexpected union type ${type.kind}`);
     }
 
-    const condition = `hasRequiredFields(rawMsg, ${getJsonFieldsForProbe(field.type.ptrType)})`;
-    const body = (indent: helpers.Indentation) =>
-      `${indent.get()}err = json.Unmarshal(data, &${receiver}.${field.name})\n`;
+    const conditions = getLiteralFields(type.ptrType).map((modelField) => {
+      const literal = go.unwrapPtr(modelField.type);
+      if (literal.kind !== "literal") {
+        throw new CodegenError("InternalError", `expected literal for ${modelField.name}`);
+      }
+      return `hasLiteralValue[${go.getTypeDeclaration(literal.type, goUnion.pkg)}](rawMsg, ${JSON.stringify(modelField.serializedName)}, ${helpers.formatLiteralValue(literal, false)})`;
+    });
+    conditions.push(`hasRequiredFields(rawMsg, ${getJsonFieldsForProbe(type.ptrType)})`);
+    const condition = conditions.join(" && ");
+    const body = (indent: helpers.Indentation) => onMatch(field, indent);
     if (i === 0) {
       ifBlock = {
         condition: condition,
@@ -311,16 +342,34 @@ function generateUnmarshalObjects(goUnion: go.UnionStruct, indent: helpers.Inden
 
   const elseBlock: helpers.elseBlock = { body: () => "" };
   // if the last field is a map then it's the fallback
-  if (jsonObjects[jsonObjects.length - 1].type.kind === "map") {
-    elseBlock.body = (indent) =>
-      `${indent.get()}err = json.Unmarshal(data, &${receiver}.${jsonObjects[jsonObjects.length - 1].name})\n`;
+  if (getType(jsonObjects[jsonObjects.length - 1]).kind === "map") {
+    elseBlock.body = (indent) => onMatch(jsonObjects[jsonObjects.length - 1], indent);
   } else {
-    elseBlock.body = (indent) => `${indent.get()}err = errors.New("could not determine variant")\n`;
+    elseBlock.body = onNoMatch;
   }
 
-  text += `${indent.get()}${helpers.buildIfBlock(indent, ifBlock, elseIfBlocks, elseBlock)}\n`;
+  return `${indent.get()}${helpers.buildIfBlock(indent, ifBlock, elseIfBlocks, elseBlock)}\n`;
+}
 
-  return text;
+function getLiteralFields(model: go.Model): Array<go.ModelField> {
+  return model.fields.filter((field) => {
+    const type = go.unwrapPtr(field.type);
+    return (
+      field.annotations.required &&
+      type.kind === "literal" &&
+      (type.type.kind === "string" || type.type.kind === "scalar")
+    );
+  });
+}
+
+function hasLiteralFields(
+  fields: Array<go.UnionField>,
+  getType: (field: go.UnionField) => go.WireType = (field) => field.type,
+): boolean {
+  return fields.some((field) => {
+    const type = getType(field);
+    return go.isPtr(type, "model") && getLiteralFields(type.ptrType).length > 0;
+  });
 }
 
 /**
@@ -343,6 +392,7 @@ interface mixedTypesInfo {
   cases: Array<helpers.caseStatement>;
   emitFloat: boolean;
   emitRequired: boolean;
+  emitLiteral: boolean;
 }
 
 /**
@@ -354,7 +404,7 @@ interface mixedTypesInfo {
  * @returns the mixedTypesInfo for the union or undefined
  */
 function getForMixedTypes(goUnion: go.UnionStruct): mixedTypesInfo | undefined {
-  const groupedObjects = groupJsonObjects(goUnion);
+  const groupedObjects = groupJsonObjects(goUnion.fields);
   if (groupedObjects.length === goUnion.fields.length) {
     // all object types so not mixed
     return undefined;
@@ -440,6 +490,7 @@ function getForMixedTypes(goUnion: go.UnionStruct): mixedTypesInfo | undefined {
     cases: mixedTypes,
     emitFloat: mixedNumbers.length > 1,
     emitRequired: groupedObjects.length > 1,
+    emitLiteral: groupedObjects.length > 1 && hasLiteralFields(groupedObjects),
   };
 }
 
@@ -473,33 +524,40 @@ function groupMixedJsonNumbers(goUnion: go.UnionStruct): Array<go.UnionField> {
 
 /**
  * returns all of the JSON object variant types within a union.
- * the array is sorted by typed objects field length in descending
- * order. any untyped object is the last entry.
+ * models with literal fields are tried first, followed by models with more fields.
+ * any untyped object is the last entry.
  *
- * @param goUnion the type for which to collect JSON objects
+ * @param fields the variants from which to collect JSON objects
+ * @param getType returns each variant's wire payload type
  * @returns an array of JSON object types
  */
-function groupJsonObjects(goUnion: go.UnionStruct): Array<go.UnionField> {
+function groupJsonObjects(
+  fields: Array<go.UnionField>,
+  getType: (field: go.UnionField) => go.WireType = (field) => field.type,
+): Array<go.UnionField> {
   const objectFields = new Array<go.UnionField>();
-  for (const field of goUnion.fields) {
-    if (field.type.kind === "map" || go.isPtr(field.type, "model")) {
+  for (const field of fields) {
+    const type = getType(field);
+    if (type.kind === "map" || go.isPtr(type, "model")) {
       objectFields.push(field);
     }
   }
 
-  // sort the models by field count, so models with a higher
-  // field count appear first. we do this in an effort to reduce
-  // incorrect unmarshalling target selection. i.e. models with
-  // more fields have a better chance of hasRequiredFields() not
-  // returning a false positive. maps always appears after models
+  // Literal constraints are stronger evidence than field presence.
+  // Field count breaks ties; maps remain the fallback.
   objectFields.sort((a, b) => {
-    if (go.isPtr(a.type, "model") && go.isPtr(b.type, "model")) {
-      return b.type.ptrType.fields.length - a.type.ptrType.fields.length;
-    } else if (a.type.kind === "map" && b.type.kind === "map") {
+    const aType = getType(a);
+    const bType = getType(b);
+    if (go.isPtr(aType, "model") && go.isPtr(bType, "model")) {
+      return (
+        getLiteralFields(bType.ptrType).length - getLiteralFields(aType.ptrType).length ||
+        bType.ptrType.fields.length - aType.ptrType.fields.length
+      );
+    } else if (aType.kind === "map" && bType.kind === "map") {
       return 0;
-    } else if (a.type.kind === "map") {
+    } else if (aType.kind === "map") {
       return 1;
-    } else if (go.isPtr(a.type, "model")) {
+    } else if (go.isPtr(aType, "model")) {
       return -1;
     }
     throw new CodegenError("InternalError", `unexpected union types ${a.type.kind} ${b.type.kind}`);
@@ -670,6 +728,13 @@ func hasRequiredFields(rawMsg map[string]json.RawMessage, fields ...string) bool
 }
 `;
 
+const hasLiteralValue = `
+func hasLiteralValue[T comparable](rawMsg map[string]json.RawMessage, field string, expected T) bool {
+	var actual *T
+	return json.Unmarshal(rawMsg[field], &actual) == nil && actual != nil && *actual == expected
+}
+`;
+
 /**
  * creates the decode functions for the SSE union types
  *
@@ -682,17 +747,27 @@ function generateSerdeSseType(
   unions: Array<go.UnionStruct>,
   imports: ImportManager,
   indent: helpers.Indentation,
-): string {
-  let content = "";
+): unmarshalInfo {
+  const result: unmarshalInfo = {
+    content: "",
+    emitProbe: false,
+    emitFloat: false,
+    emitRequired: false,
+    emitLiteral: false,
+  };
   for (const goUnion of unions) {
     if (!(goUnion.usage & go.UnionStructFlags.SseType)) {
       continue;
     }
 
-    content += generateSseDecoder(goUnion, imports, indent);
+    const events = groupSseEvents(goUnion);
+    result.content += generateSseDecoder(goUnion, events, imports, indent);
+    result.emitRequired ||= events.message.length > 1;
+    result.emitLiteral ||=
+      events.message.length > 1 && hasLiteralFields(events.message, getSsePayloadType);
   }
 
-  return content;
+  return result;
 }
 
 /** the name of the SSE event received when the event field is absent */
@@ -703,8 +778,8 @@ interface sseEvents {
   /** the events identified by the content of the SSE event field */
   named: Array<go.UnionField>;
 
-  /** the event received when the SSE event field is absent */
-  message?: go.UnionField;
+  /** the candidates received when the SSE event field is absent */
+  message: Array<go.UnionField>;
 
   /** the unnamed terminal event, identified by the content of the SSE data field */
   terminal?: go.UnionField;
@@ -717,7 +792,7 @@ interface sseEvents {
  * @returns the grouped events
  */
 function groupSseEvents(goUnion: go.UnionStruct): sseEvents {
-  const events: sseEvents = { named: new Array<go.UnionField>() };
+  const events: sseEvents = { named: [], message: [] };
   for (const field of goUnion.fields) {
     if (!field.sse) {
       throw new CodegenError(
@@ -728,11 +803,11 @@ function groupSseEvents(goUnion: go.UnionStruct): sseEvents {
 
     if (field.sse.name) {
       events.named.push(field);
-    } else if (field.sse.terminal) {
+    } else if (helpers.isSseTerminalSentinel(field)) {
       // the terminal event has no event name so it's identified by its data
       events.terminal = field;
     } else {
-      events.message = field;
+      events.message.push(field);
     }
   }
 
@@ -749,12 +824,12 @@ function groupSseEvents(goUnion: go.UnionStruct): sseEvents {
  */
 function generateSseDecoder(
   goUnion: go.UnionStruct,
+  events: sseEvents,
   imports: ImportManager,
   indent: helpers.Indentation,
 ): string {
   imports.add("github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
 
-  const events = groupSseEvents(goUnion);
   const funcName = `decode${goUnion.name}`;
 
   const article = goUnion.name.match(/^[aeiou]/i) ? "an" : "a";
@@ -767,27 +842,34 @@ function generateSseDecoder(
   let text = helpers.formatDocComment({ summary: summary });
   text += `func ${funcName}(frame streaming.EventFrame) (${goUnion.name}, bool, error) {\n`;
 
-  if (!events.named.length && !events.terminal && events.message) {
+  if (events.terminal) {
+    text += `${indent.get()}${helpers.buildIfBlock(indent, {
+      condition: `s := string(frame.Data); s == ${getSseTerminalValue(goUnion, events.terminal)}`,
+      body: (indent) => `${indent.get()}return ${goUnion.name}{}, false, io.EOF\n`,
+    })}\n`;
+  }
+
+  if (!events.named.length && !events.terminal && events.message.length === 1) {
     // every frame is the message event so there's nothing to discriminate on
-    text += generateSseEventClause(goUnion, events.message, imports, indent);
+    text += generateSseEventClause(goUnion, events.message[0], imports, indent);
     text += "}\n\n";
     return text;
   }
 
   const cases = new Array<helpers.caseStatement>();
-  if (events.message) {
+  if (events.message.length) {
     // a variant explicitly named message takes precedence for the message event name
     const hasNamedMessage = events.named.some((field) => field.sse?.name === messageEventName);
     cases.push({
       expression: hasNamedMessage ? `""` : `"", "${messageEventName}"`,
-      clause: (indent) => generateSseEventClause(goUnion, events.message!, imports, indent),
+      clause: (indent) => generateSseMessageClause(goUnion, events.message, imports, indent),
     });
   }
 
   for (const named of events.named) {
     // an event named message is also received when the SSE event field is absent
     const expression =
-      named.sse!.name === messageEventName && !events.message
+      named.sse!.name === messageEventName && !events.message.length
         ? `"", "${messageEventName}"`
         : `"${named.sse!.name}"`;
     cases.push({
@@ -799,19 +881,48 @@ function generateSseDecoder(
   imports.add("fmt");
   text += `${indent.get()}${helpers.buildSwitchCase(indent, "frame.Type", cases, {
     clause: (indent) => {
-      let clause = "";
-      if (events.terminal) {
-        clause += `${indent.get()}${helpers.buildIfBlock(indent, {
-          condition: `s := string(frame.Data); s == ${getSseTerminalValue(goUnion, events.terminal)}`,
-          body: (indent) => `${indent.get()}return ${goUnion.name}{}, false, io.EOF\n`,
-        })}\n`;
-      }
-      clause += `${indent.get()}return ${goUnion.name}{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)\n`;
-      return clause;
+      return `${indent.get()}return ${goUnion.name}{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)\n`;
     },
   })}`;
 
   text += "}\n\n"; // end func
+  return text;
+}
+
+function getSsePayloadType(field: go.UnionField): go.WireType {
+  return field.sse?.envelopeField?.type ?? field.type;
+}
+
+function generateSseMessageClause(
+  goUnion: go.UnionStruct,
+  fields: Array<go.UnionField>,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
+  if (fields.length === 1) {
+    return generateSseEventClause(goUnion, fields[0], imports, indent);
+  }
+  const objects = groupJsonObjects(fields, getSsePayloadType);
+  if (objects.length !== fields.length || fields.some((field) => field.sse?.format === "Text")) {
+    throw new CodegenError(
+      "UnsupportedTsp",
+      `multiple unnamed events in union ${goUnion.name} require JSON object payloads`,
+    );
+  }
+  let text = `${indent.get()}var rawMsg map[string]json.RawMessage\n`;
+  text += `${indent.get()}${helpers.buildIfBlock(indent, {
+    condition: "err := json.Unmarshal(frame.Data, &rawMsg); err != nil",
+    body: (indent) => `${indent.get()}return ${goUnion.name}{}, false, err\n`,
+  })}\n`;
+  text += generateObjectMatch(
+    goUnion,
+    objects,
+    indent,
+    (field, indent) => generateSseEventClause(goUnion, field, imports, indent),
+    (indent) =>
+      `${indent.get()}return ${goUnion.name}{}, false, fmt.Errorf("could not determine variant for ${goUnion.name}")\n`,
+    getSsePayloadType,
+  );
   return text;
 }
 
@@ -834,7 +945,7 @@ function generateSseEventClause(
 
   // for an event envelope, the data field contains only the payload
   // which is deserialized into the envelope's field
-  const payloadType = sse.envelopeField ? sse.envelopeField.type : field.type;
+  const payloadType = getSsePayloadType(field);
 
   let text: string;
   let payloadVar: string;

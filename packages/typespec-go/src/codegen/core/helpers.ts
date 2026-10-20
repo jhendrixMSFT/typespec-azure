@@ -21,7 +21,18 @@ export function getUnionFields(union: go.UnionStruct): Array<go.UnionField> {
   if (union.usage & go.UnionStructFlags.SumType) {
     return union.fields;
   }
-  return union.fields.filter((field) => !(field.sse?.terminal && !field.sse.name));
+  return union.fields.filter((field) => !isSseTerminalSentinel(field));
+}
+
+/** Identifies unnamed terminal string literals, which are control markers rather than payloads. */
+export function isSseTerminalSentinel(field: go.UnionField): boolean {
+  const type = go.unwrapPtr(field.type);
+  return (
+    field.sse?.terminal === true &&
+    !field.sse.name &&
+    type.kind === "literal" &&
+    typeof type.literal === "string"
+  );
 }
 
 // matches both current format (DO NOT EDIT on same line as Code generated)

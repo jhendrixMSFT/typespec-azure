@@ -41,6 +41,10 @@ invalid SSE content types are returned by the operation. The connector uses
 `runtime.SSEResponse` with the operation's authored success status codes; HTTP 204
 signals stream completion.
 
+Modeled response headers are populated from the initial connection without
+consuming the stream. If a header cannot be parsed, the operation closes the
+reader and returns the parsing error.
+
 This API requires an azcore version that provides `runtime.SSEResponse` and the
 connector-based `streaming.NewEventReader`. Until that API is released, use a local
 Go module `replace` directive for azcore.
@@ -54,10 +58,20 @@ Streams do not automatically reconnect. Reaching the end of the response body
 ends the stream with `io.EOF`, even if events contain IDs, and read errors are
 returned to the caller.
 
-Terminal model events are delivered once before the stream ends. Literal
+Terminal model events, including unnamed terminal models, are delivered once
+before the stream ends. Literal
 completion sentinels such as `[DONE]` end the stream without being delivered.
+Sentinels are recognized before decoding event payloads.
 Hidden sentinel variants are omitted from SSE-only union structs. Unions also
 used as ordinary JSON values retain those fields for JSON serialization.
+
+When multiple unnamed events have JSON object payloads, the decoder uses the
+same best-fit matching as ordinary JSON unions. Models with matching required literal
+fields are tried before structural matches, followed by models with more fields
+and finally a record fallback. Literal values must match; structural probes
+check up to four field names. The first matching variant wins when probes tie.
+Payloads that match no variant return an error. Multiple unnamed non-object or
+text payloads are not supported.
 
 The operation context governs the stream's lifetime. Reads can block indefinitely
 if the service sends no events and the context has no deadline. Canceling the
