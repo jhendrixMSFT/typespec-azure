@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"io"
 )
 
 // decodeDataEvents maps an SSE event to a DataEvents value.
@@ -58,7 +59,7 @@ func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, err
 		return ResponseEvents{ResponseDelta: &v}, false, nil
 	default:
 		if s := string(frame.Data); s == "[DONE]" {
-			return ResponseEvents{LiteralString: &s}, true, nil
+			return ResponseEvents{}, false, io.EOF
 		}
 		return ResponseEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}
@@ -81,7 +82,7 @@ func decodeRetrievalEvents(frame streaming.EventFrame) (RetrievalEvents, bool, e
 		return RetrievalEvents{PartialResult: &v}, false, nil
 	default:
 		if s := string(frame.Data); s == "[DONE]" {
-			return RetrievalEvents{LiteralString: &s}, true, nil
+			return RetrievalEvents{}, false, io.EOF
 		}
 		return RetrievalEvents{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)
 	}

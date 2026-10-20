@@ -69,9 +69,14 @@ function generateSseEncoder(
   const noValue = (indent: helpers.Indentation) =>
     `${indent.get()}return streaming.EventFrame{}, fmt.Errorf("no field set in %T", ${receiverName})\n`;
 
-  if (goUnion.fields.length === 1) {
+  const fields = helpers.getUnionFields(goUnion);
+  if (fields.length === 0) {
+    text += noValue(indent);
+    return text + "}\n\n";
+  }
+  if (fields.length === 1) {
     // with a single event there's nothing to discriminate on
-    const field = goUnion.fields[0];
+    const field = fields[0];
     text += `${indent.get()}${helpers.buildIfBlock(indent, {
       condition: `${receiverName}.${field.name} != nil`,
       body: (indent) => generateSseFrame(goUnion, field, imports, indent),
@@ -81,7 +86,7 @@ function generateSseEncoder(
     return text;
   }
 
-  const cases = goUnion.fields.map((field) => {
+  const cases = fields.map((field) => {
     return {
       expression: `${receiverName}.${field.name} != nil`,
       clause: (indent: helpers.Indentation) => generateSseFrame(goUnion, field, imports, indent),

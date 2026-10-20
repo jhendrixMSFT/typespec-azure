@@ -14,14 +14,12 @@ type ProtocolEvents struct {
 }
 
 type ResponseEvents struct {
-	LiteralString   *string
 	ResponseCreated *ResponseCreated
 	ResponseDelta   *ResponseDelta
 }
 
 type RetrievalEvents struct {
 	FinalResult   *FinalResult
-	LiteralString *string
 	PartialResult *PartialResult
 }
 

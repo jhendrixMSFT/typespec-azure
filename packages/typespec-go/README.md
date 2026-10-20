@@ -54,6 +54,11 @@ Streams do not automatically reconnect. Reaching the end of the response body
 ends the stream with `io.EOF`, even if events contain IDs, and read errors are
 returned to the caller.
 
+Terminal model events are delivered once before the stream ends. Literal
+completion sentinels such as `[DONE]` end the stream without being delivered.
+Hidden sentinel variants are omitted from SSE-only union structs. Unions also
+used as ordinary JSON values retain those fields for JSON serialization.
+
 The operation context governs the stream's lifetime. Reads can block indefinitely
 if the service sends no events and the context has no deadline. Canceling the
 context or closing the reader interrupts a blocked read.

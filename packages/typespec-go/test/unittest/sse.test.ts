@@ -130,4 +130,60 @@ describe("SSE connectors and resumption options", () => {
     expect(client).toContain("return client.receive(ctx, &connectionOptions)");
     expect(client).not.toContain("resp.Request.Context()");
   });
+
+  it("distinguishes hidden literal sentinels from terminal model payloads", async () => {
+    const files = await emitGoFor(`
+      using TypeSpec.SSE;
+      @service namespace Test;
+      model Progress { message: string; }
+      model Completion { total: int32; }
+      @TypeSpec.Events.events union Events {
+        progress: Progress,
+        @terminalEvent complete: Completion,
+        @TypeSpec.Events.contentType("text/plain") @terminalEvent "[DONE]",
+      }
+      @route("/events") @get op receive(): SSEStream<Events>;
+    `);
+    const serde = files.get("zz_unions_serde.go");
+    expect(serde).toContain('"io"');
+    expect(serde).toContain("return Events{}, false, io.EOF");
+    expect(serde).toMatch(/case "complete":[\s\S]*?return Events\{Completion: &v\}, true, nil/);
+    expect(serde).toContain("return Events{Progress: &v}, false, nil");
+    expect(serde).not.toMatch(/return Events\{[^\n]*&s[^\n]*\}, true, nil/);
+  });
+
+  it.each([false, true])(
+    "omits sentinel fields only for SSE-only unions (dual use: %s)",
+    async (dualUse) => {
+      const files = await emitGoFor(
+        `
+          using TypeSpec.SSE;
+          @service namespace Test;
+          model Info { message: string; }
+          @TypeSpec.Events.events union Events {
+            message: Info,
+            @TypeSpec.Events.contentType("text/plain") @terminalEvent "[DONE]",
+          }
+          @route("/events") @get op receive(): SSEStream<Events>;
+          ${dualUse ? '@route("/json") @post op roundTrip(@body body: Events): Events;' : ""}
+        `,
+        { "generate-fakes": true },
+      );
+      const unions = files.get("zz_unions.go");
+      const encoder = files.get("fake/zz_sse_encoders.go");
+      expect(unions).toContain("Info *Info");
+      expect(files.get("zz_unions_serde.go")).toContain("return Events{}, false, io.EOF");
+      if (dualUse) {
+        expect(unions).toContain("LiteralString *string");
+        expect(encoder).toContain("e.LiteralString");
+        expect(files.get("zz_unions_serde.go")).toContain("MarshalJSON()");
+        expect(files.get("zz_unions_serde.go")).toContain("UnmarshalJSON(data []byte)");
+        expect(files.get("zz_unions_serde.go")).toContain(".LiteralString");
+      } else {
+        expect(unions).not.toContain("LiteralString");
+        expect(encoder).not.toContain("LiteralString");
+        expect(encoder).toContain("e.Info");
+      }
+    },
+  );
 });

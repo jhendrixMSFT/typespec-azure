@@ -16,6 +16,14 @@ export const RFC3339Format = "time.RFC3339Nano";
 export const RFC1123Format = "time.RFC1123";
 export const plainTimeFormat = "time.TimeOnly";
 
+/** Returns public union fields, retaining hidden SSE sentinels only when JSON usage needs them. */
+export function getUnionFields(union: go.UnionStruct): Array<go.UnionField> {
+  if (union.usage & go.UnionStructFlags.SumType) {
+    return union.fields;
+  }
+  return union.fields.filter((field) => !(field.sse?.terminal && !field.sse.name));
+}
+
 // matches both current format (DO NOT EDIT on same line as Code generated)
 // and legacy autorest format (DO NOT EDIT on a separate line)
 export const doNotEditRegex =

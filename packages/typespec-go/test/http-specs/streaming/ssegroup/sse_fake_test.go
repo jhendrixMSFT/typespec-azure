@@ -33,8 +33,6 @@ func TestFakeSseNamedReceive(t *testing.T) {
 			OpenReceive: func(ctx context.Context, options *ssegroup.SseNamedClientOpenReceiveOptions) (resp azfake.SSEResponder[ssegroup.ResponseEvents], errResp azfake.ErrorResponder) {
 				resp.AddEvent(ssegroup.ResponseEvents{ResponseCreated: &ssegroup.ResponseCreated{ID: to.Ptr("resp_1")}})
 				resp.AddEvent(ssegroup.ResponseEvents{ResponseDelta: &ssegroup.ResponseDelta{Delta: to.Ptr("Hello")}})
-				// the terminal [DONE] event ends the stream and is not surfaced
-				resp.AddEvent(ssegroup.ResponseEvents{LiteralString: to.Ptr("[DONE]")})
 				return
 			},
 		},
@@ -85,8 +83,6 @@ func TestFakeSseRetrieveStream(t *testing.T) {
 				}
 				resp.AddEvent(ssegroup.RetrievalEvents{PartialResult: &ssegroup.PartialResult{Text: to.Ptr("partial one")}})
 				resp.AddEvent(ssegroup.RetrievalEvents{FinalResult: &ssegroup.FinalResult{References: []*string{to.Ptr("doc1"), to.Ptr("doc2")}}})
-				// the terminal [DONE] event ends the stream and is not surfaced
-				resp.AddEvent(ssegroup.RetrievalEvents{LiteralString: to.Ptr("[DONE]")})
 				return
 			},
 		},

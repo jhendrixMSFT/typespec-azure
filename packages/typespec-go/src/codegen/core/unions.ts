@@ -61,7 +61,7 @@ function generateUnionTypes(
     text += helpers.formatDocCommentWithPrefix(goUnion.name, goUnion.docs);
     text += `type ${goUnion.name} struct {\n`;
     indent.push();
-    for (const field of goUnion.fields) {
+    for (const field of helpers.getUnionFields(goUnion)) {
       imports.addForType(field.type);
       text += helpers.formatDocCommentWithPrefix(field.name, field.docs);
       text += `${indent.get()}${field.name} ${go.getTypeDeclaration(field.type, goUnion.pkg)}\n`;
@@ -95,7 +95,11 @@ function generateUnionsSerde(pkg: go.PackageContent): string {
   return text;
 }
 
-function generateSerdeSumType(unions: Array<go.UnionStruct>, imports: ImportManager, indent: helpers.Indentation): string {
+function generateSerdeSumType(
+  unions: Array<go.UnionStruct>,
+  imports: ImportManager,
+  indent: helpers.Indentation,
+): string {
   let emitProbe = false;
   let emitFloat = false;
   let emitRequired = false;
@@ -756,6 +760,7 @@ function generateSseDecoder(
   const article = goUnion.name.match(/^[aeiou]/i) ? "an" : "a";
   let summary = `${funcName} maps an SSE event to ${article} ${goUnion.name} value.`;
   if (events.terminal) {
+    imports.add("io");
     summary += ` The terminal ${getSseTerminalValue(goUnion, events.terminal)} event ends the stream.`;
   }
 
@@ -798,8 +803,7 @@ function generateSseDecoder(
       if (events.terminal) {
         clause += `${indent.get()}${helpers.buildIfBlock(indent, {
           condition: `s := string(frame.Data); s == ${getSseTerminalValue(goUnion, events.terminal)}`,
-          body: (indent) =>
-            `${indent.get()}return ${goUnion.name}{${events.terminal!.name}: ${getSseEventValue(goUnion, events.terminal!, "s")}}, true, nil\n`,
+          body: (indent) => `${indent.get()}return ${goUnion.name}{}, false, io.EOF\n`,
         })}\n`;
       }
       clause += `${indent.get()}return ${goUnion.name}{}, false, fmt.Errorf("unknown SSE event %q", frame.Type)\n`;
