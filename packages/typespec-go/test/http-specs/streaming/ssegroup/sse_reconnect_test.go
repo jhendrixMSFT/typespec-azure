@@ -201,7 +201,7 @@ func TestFakeSseLastEventID(t *testing.T) {
 						} else if assert.NotNil(t, options) {
 							assert.Equal(t, lastEventID, options.LastEventID)
 						}
-						resp.AddFrame(streaming.EventFrame{ID: "event-1", Type: "message", Data: []byte(`{"message":"hello"}`)})
+						resp.AddFrame(streaming.SSEFrame{ID: "event-1", Type: "message", Data: []byte(`{"message":"hello"}`)})
 						return
 					},
 				},

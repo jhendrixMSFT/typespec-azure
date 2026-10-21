@@ -12,85 +12,85 @@ import (
 )
 
 // encodeDataEvents renders a DataEvents value to an SSE frame.
-func encodeDataEvents(e ssegroup.DataEvents) (streaming.EventFrame, error) {
+func encodeDataEvents(e ssegroup.DataEvents) (streaming.SSEFrame, error) {
 	switch {
 	case e.WithEnvelope != nil:
 		var contents string
 		if e.WithEnvelope.Contents != nil {
 			contents = *e.WithEnvelope.Contents
 		}
-		return streaming.EventFrame{Type: "withEnvelope", Data: []byte(contents)}, nil
+		return streaming.SSEFrame{Type: "withEnvelope", Data: []byte(contents)}, nil
 	case e.WithEnvelope1 != nil:
 		data, err := json.Marshal(e.WithEnvelope1)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Type: "withoutEnvelope", Data: data}, nil
+		return streaming.SSEFrame{Type: "withoutEnvelope", Data: data}, nil
 	default:
-		return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
+		return streaming.SSEFrame{}, fmt.Errorf("no field set in %T", e)
 	}
 }
 
 // encodeProtocolEvents renders a ProtocolEvents value to an SSE frame.
-func encodeProtocolEvents(e ssegroup.ProtocolEvents) (streaming.EventFrame, error) {
+func encodeProtocolEvents(e ssegroup.ProtocolEvents) (streaming.SSEFrame, error) {
 	if e.ProtocolInfo != nil {
 		data, err := json.Marshal(e.ProtocolInfo)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Type: "message", Data: data}, nil
+		return streaming.SSEFrame{Type: "message", Data: data}, nil
 	}
-	return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
+	return streaming.SSEFrame{}, fmt.Errorf("no field set in %T", e)
 }
 
 // encodeResponseEvents renders a ResponseEvents value to an SSE frame.
-func encodeResponseEvents(e ssegroup.ResponseEvents) (streaming.EventFrame, error) {
+func encodeResponseEvents(e ssegroup.ResponseEvents) (streaming.SSEFrame, error) {
 	switch {
 	case e.ResponseCreated != nil:
 		data, err := json.Marshal(e.ResponseCreated)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Type: "responseCreated", Data: data}, nil
+		return streaming.SSEFrame{Type: "responseCreated", Data: data}, nil
 	case e.ResponseDelta != nil:
 		data, err := json.Marshal(e.ResponseDelta)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Type: "responseDelta", Data: data}, nil
+		return streaming.SSEFrame{Type: "responseDelta", Data: data}, nil
 	default:
-		return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
+		return streaming.SSEFrame{}, fmt.Errorf("no field set in %T", e)
 	}
 }
 
 // encodeRetrievalEvents renders a RetrievalEvents value to an SSE frame.
-func encodeRetrievalEvents(e ssegroup.RetrievalEvents) (streaming.EventFrame, error) {
+func encodeRetrievalEvents(e ssegroup.RetrievalEvents) (streaming.SSEFrame, error) {
 	switch {
 	case e.FinalResult != nil:
 		data, err := json.Marshal(e.FinalResult)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Type: "finalResult", Data: data}, nil
+		return streaming.SSEFrame{Type: "finalResult", Data: data}, nil
 	case e.PartialResult != nil:
 		data, err := json.Marshal(e.PartialResult)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Type: "partialResult", Data: data}, nil
+		return streaming.SSEFrame{Type: "partialResult", Data: data}, nil
 	default:
-		return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
+		return streaming.SSEFrame{}, fmt.Errorf("no field set in %T", e)
 	}
 }
 
 // encodeUnnamedEvents renders an UnnamedEvents value to an SSE frame.
-func encodeUnnamedEvents(e ssegroup.UnnamedEvents) (streaming.EventFrame, error) {
+func encodeUnnamedEvents(e ssegroup.UnnamedEvents) (streaming.SSEFrame, error) {
 	if e.Info != nil {
 		data, err := json.Marshal(e.Info)
 		if err != nil {
-			return streaming.EventFrame{}, err
+			return streaming.SSEFrame{}, err
 		}
-		return streaming.EventFrame{Data: data}, nil
+		return streaming.SSEFrame{Data: data}, nil
 	}
-	return streaming.EventFrame{}, fmt.Errorf("no field set in %T", e)
+	return streaming.SSEFrame{}, fmt.Errorf("no field set in %T", e)
 }

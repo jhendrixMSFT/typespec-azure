@@ -106,7 +106,7 @@ func TestFakeSseProtocolIDWithEnvelopeMetadata(t *testing.T) {
 		SseProtocolServer: fake.SseProtocolServer{
 			OpenID: func(ctx context.Context, options *ssegroup.SseProtocolClientOpenIDOptions) (resp azfake.SSEResponder[ssegroup.ProtocolEvents], errResp azfake.ErrorResponder) {
 				// AddFrame gives full control over the SSE envelope, including the event id
-				resp.AddFrame(streaming.EventFrame{ID: "event-1", Type: "message", Data: []byte(`{"message":"hello"}`)})
+				resp.AddFrame(streaming.SSEFrame{ID: "event-1", Type: "message", Data: []byte(`{"message":"hello"}`)})
 				return
 			},
 		},

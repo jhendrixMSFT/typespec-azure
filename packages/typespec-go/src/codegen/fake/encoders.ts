@@ -64,10 +64,10 @@ function generateSseEncoder(
   let text = helpers.formatDocComment({
     summary: `${funcName} renders ${article} ${goUnion.name} value to an SSE frame.`,
   });
-  text += `func ${funcName}(${receiverName} ${typeName}) (streaming.EventFrame, error) {\n`;
+  text += `func ${funcName}(${receiverName} ${typeName}) (streaming.SSEFrame, error) {\n`;
 
   const noValue = (indent: helpers.Indentation) =>
-    `${indent.get()}return streaming.EventFrame{}, fmt.Errorf("no field set in %T", ${receiverName})\n`;
+    `${indent.get()}return streaming.SSEFrame{}, fmt.Errorf("no field set in %T", ${receiverName})\n`;
 
   const fields = helpers.getUnionFields(goUnion);
   if (fields.length === 0) {
@@ -154,12 +154,12 @@ function generateSseFrame(
   } else {
     imports.add("encoding/json");
     text = `${indent.get()}data, err := json.Marshal(${payload.name})\n`;
-    text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "streaming.EventFrame{}")}\n`;
+    text += `${indent.get()}${helpers.buildErrCheck(indent, "err", "streaming.SSEFrame{}")}\n`;
     dataVar = "data";
   }
 
   // unnamed events have no event field so the frame type is left unset
   const frameType = sse.name ? `Type: "${sse.name}", ` : "";
-  text += `${indent.get()}return streaming.EventFrame{${frameType}Data: ${dataVar}}, nil\n`;
+  text += `${indent.get()}return streaming.SSEFrame{${frameType}Data: ${dataVar}}, nil\n`;
   return text;
 }

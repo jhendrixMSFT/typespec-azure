@@ -39,7 +39,7 @@ func (client *SseUnnamedClient) OpenReceive(ctx context.Context, options *SseUnn
 		httpResp, err := client.receive(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[UnnamedEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.SSEHandler[UnnamedEvents]{
 		Decode: decodeUnnamedEvents,
 	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {

@@ -1129,7 +1129,7 @@ function emitSseBody(
   if (!method.returns.result || method.returns.result.kind !== "sseResult") {
     throw new Error("missing result");
   }
-  body += `${indent.get()}${reader}, err := streaming.NewSSEReader(ctx, ${connect}, streaming.EventHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
+  body += `${indent.get()}${reader}, err := streaming.NewSSEReader(ctx, ${connect}, streaming.SSEHandler[${go.getTypeDeclaration(method.returns.result.type.eventType, method.receiver.type.pkg)}]{\n`;
   body += `${indent.push().get()}Decode: decode${method.returns.result.type.eventType.name},\n`;
   body += `${indent.pop().get()}}, &streaming.SSEReaderOptions{LastEventID: ${optionsCopy}.${lastEventID.name}})\n`;
   body += `${indent.get()}${helpers.buildErrCheck(indent, "err", getZeroReturnValue(method, false))}\n`;

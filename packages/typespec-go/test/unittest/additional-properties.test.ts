@@ -58,7 +58,7 @@ describe("Union usage in JSON additional properties", () => {
     expect(serde).toMatch(
       new RegExp(`func \\(\\w+ \\*${unionName}\\) UnmarshalJSON\\(data \\[\\]byte\\)`),
     );
-    expect(serde).not.toContain("streaming.EventFrame");
+    expect(serde).not.toContain("streaming.SSEFrame");
     expect(files.get("zz_models_serde.go")).toContain("AdditionalProperties");
   });
 });

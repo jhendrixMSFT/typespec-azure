@@ -840,7 +840,7 @@ function generateSseDecoder(
   }
 
   let text = helpers.formatDocComment({ summary: summary });
-  text += `func ${funcName}(frame streaming.EventFrame) (${goUnion.name}, bool, error) {\n`;
+  text += `func ${funcName}(frame streaming.SSEFrame) (${goUnion.name}, bool, error) {\n`;
 
   if (events.terminal) {
     text += `${indent.get()}${helpers.buildIfBlock(indent, {

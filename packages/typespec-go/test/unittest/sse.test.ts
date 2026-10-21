@@ -192,6 +192,8 @@ describe("SSE connectors and resumption options", () => {
     expect(client).toContain("streaming.NewSSEReader(ctx, connect,");
     expect(files.get("zz_responses.go")).toContain("*streaming.SSEReader[Events]");
     expect(files.get("zz_responses.go")).not.toContain("EventReader");
+    expect(client).toContain("streaming.SSEHandler[Events]");
+    expect(files.get("zz_unions_serde.go")).toContain("frame streaming.SSEFrame");
     expect(client).toContain(
       "&streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID}",
     );

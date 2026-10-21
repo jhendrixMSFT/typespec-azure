@@ -12,7 +12,7 @@ import (
 )
 
 // decodeDataEvents maps an SSE event to a DataEvents value.
-func decodeDataEvents(frame streaming.EventFrame) (DataEvents, bool, error) {
+func decodeDataEvents(frame streaming.SSEFrame) (DataEvents, bool, error) {
 	switch frame.Type {
 	case "withEnvelope":
 		s := string(frame.Data)
@@ -29,7 +29,7 @@ func decodeDataEvents(frame streaming.EventFrame) (DataEvents, bool, error) {
 }
 
 // decodeProtocolEvents maps an SSE event to a ProtocolEvents value.
-func decodeProtocolEvents(frame streaming.EventFrame) (ProtocolEvents, bool, error) {
+func decodeProtocolEvents(frame streaming.SSEFrame) (ProtocolEvents, bool, error) {
 	switch frame.Type {
 	case "", "message":
 		var v ProtocolInfo
@@ -43,7 +43,7 @@ func decodeProtocolEvents(frame streaming.EventFrame) (ProtocolEvents, bool, err
 }
 
 // decodeResponseEvents maps an SSE event to a ResponseEvents value. The terminal "[DONE]" event ends the stream.
-func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, error) {
+func decodeResponseEvents(frame streaming.SSEFrame) (ResponseEvents, bool, error) {
 	if s := string(frame.Data); s == "[DONE]" {
 		return ResponseEvents{}, false, io.EOF
 	}
@@ -66,7 +66,7 @@ func decodeResponseEvents(frame streaming.EventFrame) (ResponseEvents, bool, err
 }
 
 // decodeRetrievalEvents maps an SSE event to a RetrievalEvents value. The terminal "[DONE]" event ends the stream.
-func decodeRetrievalEvents(frame streaming.EventFrame) (RetrievalEvents, bool, error) {
+func decodeRetrievalEvents(frame streaming.SSEFrame) (RetrievalEvents, bool, error) {
 	if s := string(frame.Data); s == "[DONE]" {
 		return RetrievalEvents{}, false, io.EOF
 	}
@@ -89,7 +89,7 @@ func decodeRetrievalEvents(frame streaming.EventFrame) (RetrievalEvents, bool, e
 }
 
 // decodeUnnamedEvents maps an SSE event to an UnnamedEvents value.
-func decodeUnnamedEvents(frame streaming.EventFrame) (UnnamedEvents, bool, error) {
+func decodeUnnamedEvents(frame streaming.SSEFrame) (UnnamedEvents, bool, error) {
 	var v Info
 	if err := json.Unmarshal(frame.Data, &v); err != nil {
 		return UnnamedEvents{}, false, err
