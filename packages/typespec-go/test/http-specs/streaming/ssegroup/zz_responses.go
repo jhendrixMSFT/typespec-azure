@@ -8,50 +8,50 @@ import "github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 
 // SseNamedClientOpenReceiveResponse contains the response from method SseNamedClient.OpenReceive.
 type SseNamedClientOpenReceiveResponse struct {
-	Stream *streaming.EventReader[ResponseEvents]
+	Stream *streaming.SSEReader[ResponseEvents]
 }
 
 // SseProtocolClientOpenIDResponse contains the response from method SseProtocolClient.OpenID.
 type SseProtocolClientOpenIDResponse struct {
-	Stream *streaming.EventReader[ProtocolEvents]
+	Stream *streaming.SSEReader[ProtocolEvents]
 }
 
 // SseProtocolClientOpenInvalidIDResponse contains the response from method SseProtocolClient.OpenInvalidID.
 type SseProtocolClientOpenInvalidIDResponse struct {
-	Stream *streaming.EventReader[ProtocolEvents]
+	Stream *streaming.SSEReader[ProtocolEvents]
 }
 
 // SseProtocolClientOpenInvalidRetryResponse contains the response from method SseProtocolClient.OpenInvalidRetry.
 type SseProtocolClientOpenInvalidRetryResponse struct {
-	Stream *streaming.EventReader[ProtocolEvents]
+	Stream *streaming.SSEReader[ProtocolEvents]
 }
 
 // SseProtocolClientOpenReconnectResponse contains the response from method SseProtocolClient.OpenReconnect.
 type SseProtocolClientOpenReconnectResponse struct {
-	Stream *streaming.EventReader[ProtocolEvents]
+	Stream *streaming.SSEReader[ProtocolEvents]
 }
 
 // SseProtocolClientOpenRetryResponse contains the response from method SseProtocolClient.OpenRetry.
 type SseProtocolClientOpenRetryResponse struct {
-	Stream *streaming.EventReader[ProtocolEvents]
+	Stream *streaming.SSEReader[ProtocolEvents]
 }
 
 // SseProtocolDataClientOpenWithEnvelopeResponse contains the response from method SseProtocolDataClient.OpenWithEnvelope.
 type SseProtocolDataClientOpenWithEnvelopeResponse struct {
-	Stream *streaming.EventReader[DataEvents]
+	Stream *streaming.SSEReader[DataEvents]
 }
 
 // SseProtocolDataClientOpenWithoutEnvelopeResponse contains the response from method SseProtocolDataClient.OpenWithoutEnvelope.
 type SseProtocolDataClientOpenWithoutEnvelopeResponse struct {
-	Stream *streaming.EventReader[DataEvents]
+	Stream *streaming.SSEReader[DataEvents]
 }
 
 // SseRetrieveClientOpenStreamResponse contains the response from method SseRetrieveClient.OpenStream.
 type SseRetrieveClientOpenStreamResponse struct {
-	Stream *streaming.EventReader[RetrievalEvents]
+	Stream *streaming.SSEReader[RetrievalEvents]
 }
 
 // SseUnnamedClientOpenReceiveResponse contains the response from method SseUnnamedClient.OpenReceive.
 type SseUnnamedClientOpenReceiveResponse struct {
-	Stream *streaming.EventReader[UnnamedEvents]
+	Stream *streaming.SSEReader[UnnamedEvents]
 }

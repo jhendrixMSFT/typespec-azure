@@ -189,9 +189,11 @@ describe("SSE connectors and resumption options", () => {
     );
     expect(client).toContain("connectionOptions.LastEventID = lastEventID");
     expect(client).toContain("httpResp, err := client.receive(ctx, &connectionOptions)");
-    expect(client).toContain("streaming.NewEventReader(ctx, connect,");
+    expect(client).toContain("streaming.NewSSEReader(ctx, connect,");
+    expect(files.get("zz_responses.go")).toContain("*streaming.SSEReader[Events]");
+    expect(files.get("zz_responses.go")).not.toContain("EventReader");
     expect(client).toContain(
-      "&streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID}",
+      "&streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID}",
     );
     expect(client).toContain(
       "receive(ctx context.Context, options *TestClientOpenReceiveOptions) (*http.Response, error)",
@@ -200,7 +202,7 @@ describe("SSE connectors and resumption options", () => {
     expect(client).toContain("runtime.SkipBodyDownload(req)");
     expect(client).not.toContain("Reconnect:");
     expect(client).not.toContain("Connect:");
-    expect(client).not.toContain("streaming.NewEventReader(resp,");
+    expect(client).not.toContain("streaming.NewSSEReader(resp,");
     expect(client).not.toContain("options.LastEventID =");
     const server = files.get("fake/zz_test_server.go");
     expect(server).toContain('LastEventID: req.Header.Get("Last-Event-ID"),');
@@ -222,7 +224,7 @@ describe("SSE connectors and resumption options", () => {
     expect(client).toContain("connectionOptions.LastEventID1 = lastEventID");
     expect(client).toContain("httpResp, err := client.receive(ctx, options, &connectionOptions)");
     expect(client).toContain(
-      "&streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID1}",
+      "&streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID1}",
     );
     const server = files.get("fake/zz_test_server.go");
     expect(server).toContain('LastEventID1: req.Header.Get("Last-Event-ID"),');
@@ -244,7 +246,7 @@ describe("SSE connectors and resumption options", () => {
     expect(client).toContain(
       "httpResp, err := client.receive(ctx, connectionOptions, connectionOptions1, connect, lastEventID, reader, &connectionOptions2)",
     );
-    expect(client).toContain("reader1, err := streaming.NewEventReader(ctx, connect1,");
+    expect(client).toContain("reader1, err := streaming.NewSSEReader(ctx, connect1,");
     expect(client).toContain("return TestClientOpenReceiveResponse{Stream: reader1}, nil");
   });
 
@@ -287,7 +289,7 @@ describe("SSE connectors and resumption options", () => {
       "ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)",
     );
     expect(client).toContain("ctx, endSpan := runtime.StartSpan(ctx, operationName,");
-    expect(client).toContain("streaming.NewEventReader(ctx, connect,");
+    expect(client).toContain("streaming.NewSSEReader(ctx, connect,");
     expect(client).toContain("httpResp, err := client.receive(ctx, &connectionOptions)");
     expect(client).not.toContain("resp.Request.Context()");
   });

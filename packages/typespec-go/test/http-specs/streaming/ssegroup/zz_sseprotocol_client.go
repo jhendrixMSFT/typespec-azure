@@ -47,9 +47,9 @@ func (client *SseProtocolClient) OpenID(ctx context.Context, options *SseProtoco
 		httpResp, err := client.id(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolClientOpenIDResponse{}, err
 	}
@@ -99,9 +99,9 @@ func (client *SseProtocolClient) OpenInvalidID(ctx context.Context, options *Sse
 		httpResp, err := client.invalidID(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolClientOpenInvalidIDResponse{}, err
 	}
@@ -151,9 +151,9 @@ func (client *SseProtocolClient) OpenInvalidRetry(ctx context.Context, options *
 		httpResp, err := client.invalidRetry(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolClientOpenInvalidRetryResponse{}, err
 	}
@@ -203,9 +203,9 @@ func (client *SseProtocolClient) OpenReconnect(ctx context.Context, options *Sse
 		httpResp, err := client.reconnect(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolClientOpenReconnectResponse{}, err
 	}
@@ -254,9 +254,9 @@ func (client *SseProtocolClient) OpenRetry(ctx context.Context, options *SseProt
 		httpResp, err := client.retry(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[ProtocolEvents]{
 		Decode: decodeProtocolEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolClientOpenRetryResponse{}, err
 	}

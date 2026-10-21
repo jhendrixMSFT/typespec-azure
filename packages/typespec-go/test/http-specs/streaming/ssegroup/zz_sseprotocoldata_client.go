@@ -40,9 +40,9 @@ func (client *SseProtocolDataClient) OpenWithEnvelope(ctx context.Context, optio
 		httpResp, err := client.withEnvelope(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[DataEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[DataEvents]{
 		Decode: decodeDataEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolDataClientOpenWithEnvelopeResponse{}, err
 	}
@@ -92,9 +92,9 @@ func (client *SseProtocolDataClient) OpenWithoutEnvelope(ctx context.Context, op
 		httpResp, err := client.withoutEnvelope(ctx, &connectionOptions)
 		return runtime.SSEResponse(httpResp, err, http.StatusOK)
 	}
-	reader, err := streaming.NewEventReader(ctx, connect, streaming.EventHandler[DataEvents]{
+	reader, err := streaming.NewSSEReader(ctx, connect, streaming.EventHandler[DataEvents]{
 		Decode: decodeDataEvents,
-	}, &streaming.EventReaderOptions{LastEventID: connectionOptions.LastEventID})
+	}, &streaming.SSEReaderOptions{LastEventID: connectionOptions.LastEventID})
 	if err != nil {
 		return SseProtocolDataClientOpenWithoutEnvelopeResponse{}, err
 	}

@@ -224,7 +224,7 @@ export interface SseResult {
   fieldName: string;
 
   /** the result field type */
-  type: type.StreamingEventReader;
+  type: type.StreamingSSEReader;
 
   /** any docs for the result */
   docs: type.Docs;
@@ -344,7 +344,7 @@ export class ResponseEnvelope implements ResponseEnvelope {
 }
 
 export class SseResult implements SseResult {
-  constructor(fieldName: string, type: type.StreamingEventReader) {
+  constructor(fieldName: string, type: type.StreamingSSEReader) {
     this.kind = "sseResult";
     this.fieldName = fieldName;
     this.type = type;

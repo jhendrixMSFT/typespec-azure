@@ -36,7 +36,7 @@ options:
 ## Server-sent event streams
 
 SSE operations eagerly open the initial connection through a connector passed to
-`streaming.NewEventReader`. Connection failures, unexpected HTTP status codes, and
+`streaming.NewSSEReader`. Connection failures, unexpected HTTP status codes, and
 invalid SSE content types are returned by the operation. The connector uses
 `runtime.SSEResponse` with the operation's authored success status codes; HTTP 204
 signals stream completion.
@@ -46,7 +46,7 @@ consuming the stream. If a header cannot be parsed, the operation closes the
 reader and returns the parsing error.
 
 This API requires an azcore version that provides `runtime.SSEResponse` and the
-connector-based `streaming.NewEventReader`. Until that API is released, use a local
+connector-based `streaming.NewSSEReader`. Until that API is released, use a local
 Go module `replace` directive for azcore.
 
 Generated SSE operation options include a `LastEventID` string. A non-empty value

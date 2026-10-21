@@ -45,7 +45,7 @@ export type WireType =
   | Scalar
   | Slice
   | SliceArray
-  | StreamingEventReader
+  | StreamingSSEReader
   | String
   | Time
   | UnionStruct;
@@ -423,8 +423,8 @@ export interface SseEvent {
 /** the set of formats for an SSE event's data field */
 export type SseEventFormat = "JSON" | "Text";
 
-export interface StreamingEventReader extends QualifiedType {
-  kind: "streamingEventReader";
+export interface StreamingSSEReader extends QualifiedType {
+  kind: "streamingSSEReader";
 
   /** the union of possible events */
   eventType: UnionStruct;
@@ -646,7 +646,7 @@ export function getTypeDeclaration(
     case "readSeekCloser":
     case "tokenCredential":
       return `${byRef}${getQualifiedTypeDecl(type)}`;
-    case "streamingEventReader":
+    case "streamingSSEReader":
       return `*${getQualifiedTypeDecl(type)}[${getTypeDeclaration(type.eventType, scope)}]`;
   }
 }
@@ -1085,10 +1085,10 @@ export class SseEvent implements SseEvent {
   }
 }
 
-export class StreamingEventReader extends QualifiedType implements StreamingEventReader {
+export class StreamingSSEReader extends QualifiedType implements StreamingSSEReader {
   constructor(eventType: UnionStruct) {
-    super("EventReader", "github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
-    this.kind = "streamingEventReader";
+    super("SSEReader", "github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming");
+    this.kind = "streamingSSEReader";
     this.eventType = eventType;
   }
 }

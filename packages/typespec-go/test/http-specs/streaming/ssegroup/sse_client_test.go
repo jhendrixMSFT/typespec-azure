@@ -22,7 +22,7 @@ func newSseClient(t *testing.T) *ssegroup.SseClient {
 	return client
 }
 
-func drain[T any](t *testing.T, s *streaming.EventReader[T]) []T {
+func drain[T any](t *testing.T, s *streaming.SSEReader[T]) []T {
 	t.Helper()
 	var out []T
 	for {

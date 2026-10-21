@@ -291,7 +291,7 @@ export class TypeAdapter {
           case "constantDef":
           case "constantValue":
           case "etag":
-          case "streamingEventReader":
+          case "streamingSSEReader":
             throw new AdapterError(
               "UnsupportedTsp",
               `unsupported kind ${elementType.kind} for slice element type`,
@@ -422,14 +422,14 @@ export class TypeAdapter {
     return datetime;
   }
 
-  getStreamingEventReader(eventType: go.UnionStruct): go.StreamingEventReader {
+  getStreamingSSEReader(eventType: go.UnionStruct): go.StreamingSSEReader {
     const keyName = `streaming-events-${eventType.name}`;
     let ser = this.types.get(keyName);
     if (!ser) {
-      ser = new go.StreamingEventReader(eventType);
+      ser = new go.StreamingSSEReader(eventType);
       this.types.set(keyName, ser);
     }
-    return <go.StreamingEventReader>ser;
+    return <go.StreamingSSEReader>ser;
   }
 
   // returns the Go code model type for an io.ReadSeekCloser
@@ -1233,7 +1233,7 @@ export class TypeAdapter {
       case "etag":
       case "multipartContent":
       case "literal":
-      case "streamingEventReader":
+      case "streamingSSEReader":
         throw new AdapterError(
           "UnsupportedTsp",
           `unsupported kind ${valueType.kind} for map value type`,
