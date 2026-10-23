@@ -31,7 +31,7 @@ specs:
   "payload/multipart": { options: { module: multipartgroup } }
   "payload/pageable": { options: { module: pageablegroup } }
   "payload/xml": { options: { module: xmlgroup, slice-elements-byval: true } }
-  "routes": { options: { module: routesgroup, slice-elements-byval: true, generate-fakes: false } }
+  "routes": { options: { module: routesgroup, generate-fakes: false } }
   "serialization/encoded-name/json": { options: { module: jsongroup } }
   "server/endpoint/not-defined": { options: { module: noendpointgroup } }
   "server/path/multiple": { options: { module: multiplegroup } }

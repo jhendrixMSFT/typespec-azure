@@ -18,7 +18,7 @@ import {
 } from "../naming/naming.js";
 import { AdapterError } from "./errors.js";
 import * as helpers from "./helpers.js";
-import { TypeAdapter } from "./types.js";
+import { aggregateProperties, TypeAdapter } from "./types.js";
 
 /**
  * used to convert tcgc clients and their methods to Go code model types
@@ -735,7 +735,11 @@ export class ClientAdapter {
               sdkMethod.__raw?.node,
             );
           }
-          if (tokenParam.kind === "queryCollectionParam" || tokenParam.kind === "queryMapParam" || tokenParam.kind === "queryModelParam") {
+          if (
+            tokenParam.kind === "queryCollectionParam" ||
+            tokenParam.kind === "queryMapParam" ||
+            (go.isQueryParameter(tokenParam) && tokenParam.queryExpansion)
+          ) {
             throw new AdapterError(
               "InternalError",
               `unexpected collection continuation token request parameter ${tokenReq.name} for operation ${sdkMethod.name}`,
@@ -1017,6 +1021,30 @@ export class ClientAdapter {
         // NOTE: we set this on the corresponding method param as it's used when adapting the style.
         // header param will only have one corresponding method param.
         opParam.correspondingMethodParams[0].optional = false;
+      }
+
+      const queryType = param.type.kind === "nullable" ? param.type.type : param.type;
+      if (
+        opParam.kind === "query" &&
+        queryType.kind === "model" &&
+        opParam.correspondingMethodParams.includes(param)
+      ) {
+        const style = this.adaptParameterStyle(param);
+        const name = getEscapedReservedName(
+          helpers.getEffectiveName(param, go.isRequiredParameter(style)),
+          "Param",
+        );
+        for (const member of this.adaptQueryParameterGroup(
+          queryType,
+          name,
+          go.isRequiredParameter(style),
+          optionalGroup,
+          opParam.serializedName,
+          opParam.explode,
+        )) {
+          addParameterToMethod(member, opParam);
+        }
+        continue;
       }
 
       let adaptedParam: go.MethodParameter;
@@ -1517,7 +1545,7 @@ export class ClientAdapter {
           opParam.__raw?.node,
         );
       case "header": {
-        const type = this.ta.getWireType(methodParam.type, true, false);
+        const type = this.ta.getWireType(methodParam.type, methodParam.type.kind !== "dict", false);
         if (type.kind === "map") {
           if (opParam.serializedName !== "x-ms-meta") {
             throw new AdapterError(
@@ -1569,15 +1597,19 @@ export class ClientAdapter {
         break;
       }
       case "path": {
-        let pathStyle: go.PathParameterStyle = 'simple';
-        const tspStyleString = (opParam.style as string);
-        if (!['simple', 'path', 'label', 'matrix'].includes(tspStyleString)) {
-          throw new AdapterError('InternalError', `unsupported style ${tspStyleString} for parameter ${opParam.serializedName}`, opParam.__raw?.node);
+        let pathStyle: go.PathParameterStyle = "simple";
+        const tspStyleString = opParam.style as string;
+        if (!["simple", "path", "label", "matrix"].includes(tspStyleString)) {
+          throw new AdapterError(
+            "InternalError",
+            `unsupported style ${tspStyleString} for parameter ${opParam.serializedName}`,
+            opParam.__raw?.node,
+          );
         } else {
           pathStyle = tspStyleString as go.PathParameterStyle;
         }
 
-        const paramType = this.ta.getWireType(methodParam.type, false, false);
+        const paramType = this.adaptPathQueryType(methodParam.type);
         switch (paramType.kind) {
           case "map":
             adaptedParam = new go.PathMapParameter(
@@ -1588,9 +1620,10 @@ export class ClientAdapter {
               paramStyle,
               location,
               pathStyle,
+              opParam.explode,
             );
             break;
-          case 'slice':
+          case "slice":
             adaptedParam = new go.PathCollectionParameter(
               paramName,
               opParam.serializedName,
@@ -1628,7 +1661,7 @@ export class ClientAdapter {
         break;
       }
       case "query": {
-        const paramType = this.ta.getWireType(methodParam.type, true, false);
+        const paramType = this.adaptPathQueryType(methodParam.type);
         switch (paramType.kind) {
           case "map":
             adaptedParam = new go.QueryMapParameter(
@@ -1641,26 +1674,15 @@ export class ClientAdapter {
               location,
             );
             break;
-          case "model":
-            // unwrap all Ptr<T> field types
-            for (let i = 0; i < paramType.fields.length; ++i) {
-              const field = paramType.fields[i];
-              if (field.type.kind === "ptr") {
-                paramType.fields[i].type = field.type.ptrType;
-              }
-            }
-            adaptedParam = new go.QueryModelParameter(
-              paramName,
-              true,
-              paramType,
-              paramStyle,
-              location,
-            )
-            break;
           case "slice": {
-            let format: go.ExtendedCollectionFormat = opParam.explode ? 'multi' : 'csv';
+            let format: go.ExtendedCollectionFormat = opParam.explode ? "multi" : "csv";
             if (opParam.collectionFormat) {
-              format = opParam.collectionFormat === 'simple' ? 'csv' : (opParam.collectionFormat === 'form' ? 'multi' : opParam.collectionFormat);
+              format =
+                opParam.collectionFormat === "simple"
+                  ? "csv"
+                  : opParam.collectionFormat === "form"
+                    ? "multi"
+                    : opParam.collectionFormat;
             }
             adaptedParam = new go.QueryCollectionParameter(
               paramName,
@@ -1849,7 +1871,7 @@ export class ClientAdapter {
             continue;
           }
 
-          const type = this.ta.getWireType(httpHeader.type, true, false);
+          const type = this.ta.getWireType(httpHeader.type, httpHeader.type.kind !== "dict", false);
           let headerResp: go.HeaderScalarResponse | go.HeaderMapResponse;
           if (type.kind === "map") {
             if (
@@ -2197,6 +2219,100 @@ export class ClientAdapter {
     return structType;
   }
 
+  private adaptQueryParameterGroup(
+    model: tcgc.SdkModelType,
+    name: string,
+    required: boolean,
+    optionalGroup: go.ParameterGroup | undefined,
+    queryParameter: string,
+    explode: boolean,
+  ): Array<go.QueryScalarParameter | go.QueryCollectionParameter> {
+    const modelName = helpers.getEffectiveName(model);
+    const groupName = this.ta.getPkg().models.some((payload) => payload.name === modelName)
+      ? `${modelName}QueryParameters`
+      : modelName;
+    const group = new go.ParameterGroup(this.ta.getPkg(), name, groupName, true, "method");
+    const expansion: go.QueryExpansion = { queryParameter, explode };
+    const params = new Array<go.QueryScalarParameter | go.QueryCollectionParameter>();
+    group.docs.summary = model.summary;
+    group.docs.description = model.doc;
+    const { props, addlProps } = aggregateProperties(this.ta.ctx, model);
+    if (addlProps || helpers.isPolymorphicRoot(model) || model.discriminatorValue) {
+      throw new AdapterError(
+        "UnsupportedTsp",
+        "query parameter groups cannot contain additional properties or polymorphism",
+        model.__raw?.node,
+      );
+    }
+    for (const prop of props) {
+      const type = this.adaptPathQueryType(prop.type);
+      const style = this.adaptParameterStyle(required ? prop : { ...prop, optional: true });
+      const byVal = go.isRequiredParameter(style) || go.isLiteralParameter(style);
+      const fieldName = helpers.getEffectiveName({
+        name: prop.name,
+        isExactName: prop.isExactName,
+        access: prop.access,
+      });
+      const serializedName = prop.serializationOptions.json?.name ?? prop.serializedName;
+      let param: go.QueryScalarParameter | go.QueryCollectionParameter;
+      if (type.kind === "slice") {
+        param = new go.QueryCollectionParameter(
+          fieldName,
+          serializedName,
+          true,
+          type,
+          "csv",
+          style,
+          "method",
+        );
+      } else if (
+        type.kind === "constant" ||
+        type.kind === "encodedBytes" ||
+        type.kind === "literal" ||
+        type.kind === "scalar" ||
+        type.kind === "string" ||
+        type.kind === "time"
+      ) {
+        param = new go.QueryScalarParameter(
+          fieldName,
+          serializedName,
+          true,
+          !byVal && helpers.isPtrType(type) ? this.ta.getPtrType(type) : type,
+          style,
+          "method",
+        );
+      } else {
+        throw new AdapterError(
+          "UnsupportedTsp",
+          `unsupported query parameter group field type ${prop.type.kind}`,
+          prop.__raw?.node,
+        );
+      }
+      param.queryExpansion = expansion;
+      param.docs.summary = prop.summary;
+      param.docs.description = prop.doc;
+      if (byVal) {
+        param.group = group;
+        group.params.push(param);
+      } else {
+        if (!optionalGroup) {
+          throw new AdapterError(
+            "InternalError",
+            `optional query parameter ${prop.name} has no optional parameter group`,
+            prop.__raw?.node,
+          );
+        }
+        param.group = optionalGroup;
+        optionalGroup.params.push(param);
+      }
+      params.push(param);
+    }
+    if (group.params.length > 0 && !this.parameterGroups.has(groupName)) {
+      this.parameterGroups.set(groupName, group);
+    }
+    return params;
+  }
+
   private adaptHeaderScalarType(sdkType: tcgc.SdkType, forParam: boolean): go.HeaderScalarWireType {
     // It would be ideal to force the ETag type for the known ETag headers per the RFC.
     // However, doing so introduces too many breaking changes (if-match and if-none-match).
@@ -2214,6 +2330,20 @@ export class ClientAdapter {
       `unexpected header scalar parameter type ${type.kind}`,
       sdkType.__raw?.node,
     );
+  }
+
+  private adaptPathQueryType(sdkType: tcgc.SdkType): Exclude<go.WireType, go.Ptr> {
+    if (
+      (sdkType.kind === "array" || sdkType.kind === "dict") &&
+      sdkType.valueType.kind === "nullable"
+    ) {
+      throw new AdapterError(
+        "UnsupportedTsp",
+        "nullable entries in path/query collections are not supported",
+        sdkType.__raw?.node,
+      );
+    }
+    return this.ta.getWireType(sdkType, true, false);
   }
 
   private adaptParameterStyle(param: ParameterStyleInfo): go.ParameterStyle {
@@ -2283,12 +2413,23 @@ export class ClientAdapter {
                 `can not find go param for example param ${param.parameter.name}`,
               );
             }
-            if (goParams.length > 1) {
+            if (
+              goParams.length > 1 ||
+              (go.isQueryParameter(goParams[0]) && goParams[0].queryExpansion)
+            ) {
               // spread case
               for (const goParam of goParams) {
-                const propertyValue = (<tcgc.SdkModelExampleValue>param.value).value[
-                  (<go.PartialBodyParameter>goParam).serializedName
-                ];
+                const isQueryMember = go.isQueryParameter(goParam) && goParam.queryExpansion;
+                if (isQueryMember && param.value.kind === "null") {
+                  continue;
+                }
+                const key = go.isQueryParameter(goParam)
+                  ? goParam.queryParameter
+                  : (<go.PartialBodyParameter>goParam).serializedName;
+                const propertyValue = (<tcgc.SdkModelExampleValue>param.value).value[key];
+                if (isQueryMember && propertyValue === undefined) {
+                  continue;
+                }
                 const paramExample = new go.ParameterExample(
                   goParam,
                   this.adaptExampleType(propertyValue, goParam?.type),

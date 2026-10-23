@@ -155,6 +155,31 @@ pnpm tspcompile --filter=TestName
 
 The first run also syncs the Azure REST API specs into `temp/`. The generated Go fixtures are not committed (they are `.gitignore`d), so validate your change by running the Go tests and linter below rather than by diffing the fixtures.
 
+The `routesgroup` tests cover URI-template path styles (simple, path, label, and matrix),
+reserved expansion, query expansion, and query continuation for scalar and collection
+parameters, including records and query models. Run `pnpm tspcompile --filter=routesgroup`
+before testing changes to path/query request generation against Spector.
+Packages that expand path arrays/maps also receive a generated `path_helpers.go` file
+(with the configured file prefix). Scalar values and collection components use
+`url.PathEscape`; reserved expansion is left unchanged. Query parameters use query
+escaping with spaces represented as `%20` rather than `+`.
+Only the required array/map helpers are emitted for escaping, sorting, and joining components.
+Request methods retain typed value formatting, optional-parameter checks, and
+required-value validation.
+Path/query slices and maps use value elements independently of `slice-elements-byval`.
+Their formatters return strings without an element-skipping flag. Explicitly nullable
+collection entries are unsupported and produce a diagnostic instead of being omitted.
+Named query objects use parameter groups emitted in `options.go`, without payload tags
+or generated serde. Only required fields belong to the named group and are passed by
+value. Optional fields go into the method's options group, retaining normal presence
+semantics; the named group disappears when no required fields remain. Fields of an
+optional query object are all optional. URI-template expansion metadata is independent
+of Go argument grouping, so non-exploded objects still join their present fields into
+one query value. Models also used in request/response bodies retain a separate payload
+representation and its normal pointer/serde behavior.
+Query-only groups keep the modeled type name. If a payload model also uses that name,
+the query group receives a `QueryParameters` suffix to avoid duplicate Go types.
+
 ### Diff the regenerated code
 
 Because the fixtures are not committed, a plain `git diff` won't show how your emitter change affects the generated Go. To review that impact, `pnpm diff-regen-code` regenerates the code twice — once from a **baseline** emitter and once from your working tree (**head**) — and renders the difference as a clickable HTML report plus a terminal summary. It wraps the language-agnostic [`emitter-diff`](https://github.com/microsoft/typespec/tree/main/eng/emitter-diff) tool that lives in the `core` submodule, running `pnpm tspcompile` in each tree and diffing `test/http-specs`, `test/azure-http-specs`, and `test/local`.

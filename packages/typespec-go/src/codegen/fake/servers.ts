@@ -1254,6 +1254,12 @@ function parseHeaderPathQueryParams(
     // since path/query params need to be unescaped, the value
     // of paramValue will be updated with the var name that
     // contains the unescaped value.
+    if (go.isQueryParameter(param) && param.queryExpansion && !param.queryExpansion.explode) {
+      throw new CodegenError(
+        "UnsupportedTsp",
+        "non-exploded query objects are not supported by fakes",
+      );
+    }
     let paramValue = getRawParamValue(param);
 
     // optional params are pointer-wrapped; dispatch on the unwrapped type.
@@ -1304,10 +1310,7 @@ function parseHeaderPathQueryParams(
     }
 
     // parse params as required
-    if (
-      param.kind === "headerCollectionParam" ||
-      param.kind === "queryCollectionParam"
-    ) {
+    if (param.kind === "headerCollectionParam" || param.kind === "queryCollectionParam") {
       const elementType = go.unwrapPtr(param.type.itemType);
       // any element type other than string will require some form of conversion/parsing
       if (elementType.kind !== "string") {
@@ -1719,10 +1722,7 @@ function getFinalParamValue(
     return `time.Time(${paramValue})`;
   } else if (go.isRequiredParameter(param.style)) {
     // optional params are always in their "final" form
-    if (
-      param.kind === "headerCollectionParam" ||
-      param.kind === "queryCollectionParam"
-    ) {
+    if (param.kind === "headerCollectionParam" || param.kind === "queryCollectionParam") {
       // for required params that are collections of strings, we split them inline.
       // not necessary for optional params as they're already in slice format.
       if (param.collectionFormat !== "multi" && param.type.itemType.kind === "string") {
