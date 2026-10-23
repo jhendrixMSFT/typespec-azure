@@ -20,10 +20,10 @@ export type HeaderParameter =
   HeaderCollectionParameter | HeaderMapParameter | HeaderScalarParameter;
 
 /** the union of all path parameter types */
-export type PathParameter = PathCollectionParameter | PathScalarParameter;
+export type PathParameter = PathCollectionParameter | PathMapParameter | PathScalarParameter;
 
 /** the union of all query parameter types */
-export type QueryParameter = QueryCollectionParameter | QueryScalarParameter;
+export type QueryParameter = QueryCollectionParameter | QueryMapParameter | QueryModelParameter | QueryScalarParameter;
 
 /** defines the possible method parameter types */
 export type MethodParameter =
@@ -201,6 +201,34 @@ export interface PartialBodyParameter extends HttpParameterBase {
   format: "JSON" | "XML";
 }
 
+/** indicates how a collection is styled on the wire */
+// https://spec.openapis.org/oas/v3.1.0#style-examples
+// https://swagger.io/docs/specification/v3_0/serialization/
+export type PathParameterStyle =
+  /** Simple replacement of "{placeholder}" to "value" */
+  // For scalar values, it works the same regardless of 'explode'.
+  // For arrays, "{placeholder}" becomes "v,a,l,u,e,s", regardless of 'explode'.
+  // For hashmaps, it is "k1,v1,k2,v2" when 'explode' is false, "k1=v1,k2=v2" when true.
+  'simple' |
+
+  /** Expansion of value into path components via '/': "{placeholder}" becomes "/value" */
+  // For scalar values, it works the same regardless of 'explode'.
+  // For arrays, "{placeholder}" becomes "/v,a,l,u,e,s" when 'explode' is false, "/v/a/l/u/e/s" when true.
+  // For hashmaps, it is "/k1,v1,k2,v2" when 'explode' is false, "/k1=v1/k2=v2" when true.
+  'path' |
+
+  /** Expansion of value into a label via '.': "{placeholder}" becomes ".value" */
+  // For scalar values, it works the same regardless of 'explode'.
+  // For arrays, "{placeholder}" becomes ".v,a,l,u,e,s" when 'explode' is false, ".v.a.l.u.e.s" when true.
+  // For hashmaps, it is ".k1,v1,k2,v2" when 'explode' is false, ".k1=v1.k2=v2" when true.
+  'label' |
+
+  /** Semicolon separated, 'name=value' form: "{placeholder}" becomes ";param=value" */
+  // For scalar values, it works the same regardless of 'explode'.
+  // For arrays, "{placeholder}" becomes ";param=v,a,l,u,e,s" when 'explode' is false, ";param=v;param=a;param=l;param=u;param=e;param=s" when true.
+  // For hashmaps, it is ";param=k1,v1,k2,v2" when 'explode' is false, ";k1=v1;k2=v2" when true.
+  'matrix';
+
 /** a collection of values that go in the HTTP path */
 export interface PathCollectionParameter extends HttpParameterBase {
   kind: "pathCollectionParam";
@@ -214,8 +242,28 @@ export interface PathCollectionParameter extends HttpParameterBase {
   /** indicates if the values must be URL encoded */
   isEncoded: boolean;
 
-  /** the format of the collection */
-  collectionFormat: CollectionFormat;
+  /** indicates if the parameter should be passed with "explode" styling */
+  explode: boolean;
+
+  /** the style of the parameter */
+  pathStyle: PathParameterStyle;
+}
+
+/** a collection of values that go in the HTTP path */
+export interface PathMapParameter extends HttpParameterBase {
+  kind: "pathMapParam";
+
+  /** the segment name to be replaced with the values */
+  pathSegment: string;
+
+  /** the type of the parameter */
+  type: type.Map;
+
+  /** indicates if the values must be URL encoded */
+  isEncoded: boolean;
+
+  /** the style of the parameter */
+  pathStyle: PathParameterStyle;
 }
 
 /** a value that goes in the HTTP path */
@@ -242,6 +290,9 @@ export interface PathScalarParameter extends HttpParameterBase {
    * the default value is false.
    */
   omitEmptyStringCheck: boolean;
+
+  /** the style of the parameter */
+  pathStyle: PathParameterStyle;
 }
 
 /** defines the possible types for a PathScalarParameter */
@@ -278,6 +329,38 @@ export interface QueryCollectionParameter extends HttpParameterBase {
 
   /** the format of the collection */
   collectionFormat: ExtendedCollectionFormat;
+}
+
+/** a collection of values that go in the HTTP query string */
+export interface QueryMapParameter extends HttpParameterBase {
+  kind: "queryMapParam";
+
+  /** the query string's key name */
+  queryParameter: string;
+
+  /** the type of the parameter */
+  type: type.Map;
+
+  /** indicates if the values must be URL encoded */
+  isEncoded: boolean;
+
+  /** indicates if the parameter should be passed with "explode" styling */
+  explode: boolean;
+}
+
+/** a collection of values that go in the HTTP query string */
+export interface QueryModelParameter extends HttpParameterBase {
+  kind: "queryModelParam";
+
+  /**
+   * the type of the parameter.
+   * the model fields/values are exploded
+   * into discrete query param keys/values
+   */
+  type: type.Model;
+
+  /** indicates if the value must be URL encoded */
+  isEncoded: boolean;
 }
 
 /** a scalar value that goes in the HTTP query string */
@@ -381,43 +464,9 @@ export function isPathParameter(param: MethodParameter): param is PathParameter 
   return param.kind === "pathCollectionParam" || param.kind === "pathScalarParam";
 }
 
-/** narrows type to a PathScalarParameterWireType within the conditional block */
-export function isPathScalarParameterType(
-  type: type.WireType,
-): type is PathScalarParameterWireType {
-  switch (type.kind) {
-    case "constant":
-    case "encodedBytes":
-    case "literal":
-    case "scalar":
-    case "string":
-    case "time":
-      return true;
-    default:
-      return false;
-  }
-}
-
 /** narrows param to a QueryParameter within the conditional block */
 export function isQueryParameter(param: MethodParameter): param is QueryParameter {
   return param.kind === "queryCollectionParam" || param.kind === "queryScalarParam";
-}
-
-/** narrows type to a QueryScalarParameterWireType within the conditional block */
-export function isQueryScalarParameterType(
-  type: type.WireType,
-): type is QueryScalarParameterWireType {
-  switch (type.kind) {
-    case "constant":
-    case "encodedBytes":
-    case "literal":
-    case "scalar":
-    case "string":
-    case "time":
-      return true;
-    default:
-      return false;
-  }
 }
 
 /** returns true if the param is required */
@@ -640,15 +689,35 @@ export class PathCollectionParameter extends HttpParameterBase implements PathCo
     pathSegment: string,
     isEncoded: boolean,
     type: type.Slice,
-    collectionFormat: CollectionFormat,
+    explode: boolean,
     style: ParameterStyle,
     location: ParameterLocation,
+    pathStyle: PathParameterStyle,
   ) {
     super(name, type, style, location);
     this.kind = "pathCollectionParam";
     this.pathSegment = pathSegment;
     this.isEncoded = isEncoded;
-    this.collectionFormat = collectionFormat;
+    this.explode = explode;
+    this.pathStyle = pathStyle;
+  }
+}
+
+export class PathMapParameter extends HttpParameterBase implements PathMapParameter {
+  constructor(
+    name: string,
+    pathSegment: string,
+    isEncoded: boolean,
+    type: type.Map,
+    style: ParameterStyle,
+    location: ParameterLocation,
+    pathStyle: PathParameterStyle,
+  ) {
+    super(name, type, style, location);
+    this.kind = "pathMapParam";
+    this.pathSegment = pathSegment;
+    this.isEncoded = isEncoded;
+    this.pathStyle = pathStyle;
   }
 }
 
@@ -660,6 +729,7 @@ export class PathScalarParameter extends HttpParameterBase implements PathScalar
     type: PathScalarParameterType,
     style: ParameterStyle,
     location: ParameterLocation,
+    pathStyle: PathParameterStyle,
   ) {
     super(name, type, style, location);
     this.kind = "pathScalarParam";
@@ -667,6 +737,7 @@ export class PathScalarParameter extends HttpParameterBase implements PathScalar
     this.isEncoded = isEncoded;
     this.isApiVersion = false;
     this.omitEmptyStringCheck = false;
+    this.pathStyle = pathStyle;
   }
 }
 
@@ -688,6 +759,38 @@ export class QueryCollectionParameter
     this.queryParameter = queryParam;
     this.isEncoded = isEncoded;
     this.collectionFormat = collectionFormat;
+  }
+}
+
+export class QueryMapParameter extends HttpParameterBase implements QueryMapParameter {
+  constructor(
+    name: string,
+    queryParam: string,
+    isEncoded: boolean,
+    type: type.Map,
+    explode: boolean,
+    style: ParameterStyle,
+    location: ParameterLocation,
+  ) {
+    super(name, type, style, location);
+    this.kind = "queryMapParam";
+    this.queryParameter = queryParam;
+    this.isEncoded = isEncoded;
+    this.explode = explode;
+  }
+}
+
+export class QueryModelParameter extends HttpParameterBase implements QueryModelParameter {
+  constructor(
+    name: string,
+    isEncoded: boolean,
+    type: type.Model,
+    style: ParameterStyle,
+    location: ParameterLocation,
+  ) {
+    super(name, type, style, location);
+    this.kind = "queryModelParam";
+    this.isEncoded = isEncoded;
   }
 }
 

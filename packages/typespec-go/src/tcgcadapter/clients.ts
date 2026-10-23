@@ -735,7 +735,7 @@ export class ClientAdapter {
               sdkMethod.__raw?.node,
             );
           }
-          if (tokenParam.kind === "queryCollectionParam") {
+          if (tokenParam.kind === "queryCollectionParam" || tokenParam.kind === "queryMapParam" || tokenParam.kind === "queryModelParam") {
             throw new AdapterError(
               "InternalError",
               `unexpected collection continuation token request parameter ${tokenReq.name} for operation ${sdkMethod.name}`,
@@ -1390,6 +1390,7 @@ export class ClientAdapter {
             paramType,
             paramType.kind === "literal" ? new go.ClientSideDefault(paramType) : paramStyle,
             paramLoc,
+            "simple",
           );
           break;
         case "query":
@@ -1568,54 +1569,134 @@ export class ClientAdapter {
         break;
       }
       case "path": {
-        const type = this.adaptPathScalarParameterType(methodParam.type);
-        adaptedParam = new go.PathScalarParameter(
-          paramName,
-          opParam.serializedName,
-          !opParam.allowReserved,
-          !byVal && helpers.isPtrType(type) ? this.ta.getPtrType(type) : type,
-          paramStyle,
-          location,
-        );
-        break;
-      }
-      case "query":
-        if (opParam.collectionFormat) {
-          const type = this.ta.getWireType(methodParam.type, true, false);
-          if (type.kind !== "slice") {
+        let pathStyle: go.PathParameterStyle = 'simple';
+        const tspStyleString = (opParam.style as string);
+        if (!['simple', 'path', 'label', 'matrix'].includes(tspStyleString)) {
+          throw new AdapterError('InternalError', `unsupported style ${tspStyleString} for parameter ${opParam.serializedName}`, opParam.__raw?.node);
+        } else {
+          pathStyle = tspStyleString as go.PathParameterStyle;
+        }
+
+        const paramType = this.ta.getWireType(methodParam.type, false, false);
+        switch (paramType.kind) {
+          case "map":
+            adaptedParam = new go.PathMapParameter(
+              paramName,
+              opParam.serializedName,
+              !opParam.allowReserved,
+              paramType,
+              paramStyle,
+              location,
+              pathStyle,
+            );
+            break;
+          case 'slice':
+            adaptedParam = new go.PathCollectionParameter(
+              paramName,
+              opParam.serializedName,
+              !opParam.allowReserved,
+              paramType,
+              opParam.explode,
+              paramStyle,
+              location,
+              pathStyle,
+            );
+            break;
+          case "constant":
+          case "encodedBytes":
+          case "literal":
+          case "scalar":
+          case "string":
+          case "time":
+            adaptedParam = new go.PathScalarParameter(
+              paramName,
+              opParam.serializedName,
+              !opParam.allowReserved,
+              !byVal && helpers.isPtrType(paramType) ? this.ta.getPtrType(paramType) : paramType,
+              paramStyle,
+              location,
+              pathStyle,
+            );
+            break;
+          default:
             throw new AdapterError(
               "InternalError",
-              `unexpected kind ${type.kind} for QueryCollectionParameter ${methodParam.name}`,
-              opParam.__raw?.node,
+              `unexpected path scalar parameter type ${methodParam.type.kind}`,
+              methodParam.type.__raw?.node,
             );
-          }
-          // TODO: unencoded query param
-          adaptedParam = new go.QueryCollectionParameter(
-            paramName,
-            opParam.serializedName,
-            true,
-            type,
-            opParam.collectionFormat === "simple"
-              ? "csv"
-              : opParam.collectionFormat === "form"
-                ? "multi"
-                : opParam.collectionFormat,
-            paramStyle,
-            location,
-          );
-        } else {
-          // TODO: unencoded query param
-          const type = this.adaptQueryScalarParameterType(methodParam.type);
-          adaptedParam = new go.QueryScalarParameter(
-            paramName,
-            opParam.serializedName,
-            true,
-            !byVal && helpers.isPtrType(type) ? this.ta.getPtrType(type) : type,
-            paramStyle,
-            location,
-          );
         }
         break;
+      }
+      case "query": {
+        const paramType = this.ta.getWireType(methodParam.type, true, false);
+        switch (paramType.kind) {
+          case "map":
+            adaptedParam = new go.QueryMapParameter(
+              paramName,
+              opParam.serializedName,
+              true,
+              paramType,
+              opParam.explode,
+              paramStyle,
+              location,
+            );
+            break;
+          case "model":
+            // unwrap all Ptr<T> field types
+            for (let i = 0; i < paramType.fields.length; ++i) {
+              const field = paramType.fields[i];
+              if (field.type.kind === "ptr") {
+                paramType.fields[i].type = field.type.ptrType;
+              }
+            }
+            adaptedParam = new go.QueryModelParameter(
+              paramName,
+              true,
+              paramType,
+              paramStyle,
+              location,
+            )
+            break;
+          case "slice": {
+            let format: go.ExtendedCollectionFormat = opParam.explode ? 'multi' : 'csv';
+            if (opParam.collectionFormat) {
+              format = opParam.collectionFormat === 'simple' ? 'csv' : (opParam.collectionFormat === 'form' ? 'multi' : opParam.collectionFormat);
+            }
+            adaptedParam = new go.QueryCollectionParameter(
+              paramName,
+              opParam.serializedName,
+              true,
+              paramType,
+              format,
+              paramStyle,
+              location,
+            );
+            break;
+          }
+          case "constant":
+          case "encodedBytes":
+          case "literal":
+          case "scalar":
+          case "string":
+          case "time":
+            adaptedParam = new go.QueryScalarParameter(
+              paramName,
+              opParam.serializedName,
+              true,
+              !byVal && helpers.isPtrType(paramType) ? this.ta.getPtrType(paramType) : paramType,
+              paramStyle,
+              location,
+            );
+            break;
+          default:
+            throw new AdapterError(
+              "InternalError",
+              `unexpected query scalar parameter type ${methodParam.type.kind}`,
+              methodParam.type.__raw?.node,
+            );
+        }
+        break;
+      }
     }
 
     if (adaptedParam.location === "client") {
@@ -2131,30 +2212,6 @@ export class ClientAdapter {
     throw new AdapterError(
       "InternalError",
       `unexpected header scalar parameter type ${type.kind}`,
-      sdkType.__raw?.node,
-    );
-  }
-
-  private adaptPathScalarParameterType(sdkType: tcgc.SdkType): go.PathScalarParameterWireType {
-    const type = this.ta.getWireType(sdkType, false, false);
-    if (go.isPathScalarParameterType(type)) {
-      return type;
-    }
-    throw new AdapterError(
-      "InternalError",
-      `unexpected path scalar parameter type ${sdkType.kind}`,
-      sdkType.__raw?.node,
-    );
-  }
-
-  private adaptQueryScalarParameterType(sdkType: tcgc.SdkType): go.QueryScalarParameterWireType {
-    const type = this.ta.getWireType(sdkType, false, false);
-    if (go.isQueryScalarParameterType(type)) {
-      return type;
-    }
-    throw new AdapterError(
-      "InternalError",
-      `unexpected query scalar parameter type ${sdkType.kind}`,
       sdkType.__raw?.node,
     );
   }

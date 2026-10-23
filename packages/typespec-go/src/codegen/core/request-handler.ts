@@ -245,9 +245,7 @@ export function createRequestHandler(
     let nonReinjectedParamsText = "";
 
     // we emit all reinjected params in the loop, and collect the code for non-reinjected params
-    for (const qp of encodedParams.sort((a: go.QueryParameter, b: go.QueryParameter) => {
-      return helpers.sortAscending(a.queryParameter, b.queryParameter);
-    })) {
+    for (const qp of encodedParams.sort(sortQueryParams)) {
       let setter: string;
       if (qp.kind === "queryCollectionParam" && qp.collectionFormat === "multi") {
         setter = `for _, qv := range ${helpers.getParamName(qp)} {\n`;
@@ -276,6 +274,11 @@ export function createRequestHandler(
 
         setter += `${indent.push().get()}reqQP.Add("${qp.queryParameter}", ${queryVal})\n`;
         setter += `${indent.pop().get()}}`;
+      } else if (qp.kind === "queryModelParam") {
+        setter = "";
+        for (const field of qp.type.fields) {
+          setter += `reqQP.Set("${field.serializedName}", ${qp.name}.${field.name})\n`;
+        }
       } else {
         // cannot initialize setter to this value as helpers.formatParamValue() can change imports
         setter = `reqQP.Set("${qp.queryParameter}", ${helpers.formatParamValue(qp, imports, indent)})`;
@@ -334,14 +337,17 @@ export function createRequestHandler(
     } else {
       text += `${indent.get()}unencodedParams := []string{}\n`;
     }
-    for (const qp of unencodedParams.sort((a: go.QueryParameter, b: go.QueryParameter) => {
-      return helpers.sortAscending(a.queryParameter, b.queryParameter);
-    })) {
+    for (const qp of unencodedParams.sort(sortQueryParams)) {
       let setter: string;
       if (qp.kind === "queryCollectionParam" && qp.collectionFormat === "multi") {
         setter = `for _, qv := range ${helpers.getParamName(qp)} {\n`;
         setter += `${indent.push().get()}unencodedParams = append(unencodedParams, "${qp.queryParameter}="+qv)\n`;
         setter += `${indent.pop().get()}}`;
+      } else if (qp.kind === "queryModelParam") {
+        setter = "";
+        for (const field of qp.type.fields) {
+          setter += `reqQP.Set("${field.serializedName}", ${qp.name}.${field.name})\n`;
+        }
       } else {
         setter = `unencodedParams = append(unencodedParams, "${qp.queryParameter}="+${helpers.formatParamValue(qp, imports, indent)})`;
       }
@@ -745,9 +751,12 @@ function emitClientSideDefault(
       serializedName = param.headerName;
       break;
     case "queryCollectionParam":
+    case "queryMapParam":
     case "queryScalarParam":
       serializedName = param.queryParameter;
       break;
+    case "queryModelParam":
+      throw new Error("TODO 2");
   }
 
   // we've created a local var with the underlying type of the
@@ -1016,4 +1025,16 @@ function isSliceOfTimeForMarshalling(type: go.Slice<go.Ptr<go.Time> | go.Time>):
       return false;
   }
   return false;
+}
+
+function sortQueryParams(a: go.QueryParameter, b: go.QueryParameter): number {
+  if (a.kind !== "queryModelParam" && b.kind !== "queryModelParam") {
+    return helpers.sortAscending(a.queryParameter, b.queryParameter);
+  } else if (a.kind === "queryModelParam" && b.kind === "queryModelParam") {
+    return helpers.sortAscending(a.type.name, b.type.name);
+  } else if (a.kind !== "queryModelParam") {
+    return -1;
+  } else {
+    return 1;
+  }
 }

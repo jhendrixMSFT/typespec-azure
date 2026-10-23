@@ -371,7 +371,6 @@ export function formatParamValue(
   switch (param.kind) {
     case "formBodyCollectionParam":
     case "headerCollectionParam":
-    case "pathCollectionParam":
     case "queryCollectionParam": {
       if (param.collectionFormat === "multi") {
         throw new CodegenError(
@@ -1267,6 +1266,7 @@ export function getMethodParamGroups(method: go.MethodType | go.NextPageMethod):
         pathParams.push(param);
         break;
       case "queryCollectionParam":
+      case "queryModelParam":
       case "queryScalarParam":
         if (param.isEncoded) {
           encodedQueryParams.push(param);

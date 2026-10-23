@@ -1306,7 +1306,6 @@ function parseHeaderPathQueryParams(
     // parse params as required
     if (
       param.kind === "headerCollectionParam" ||
-      param.kind === "pathCollectionParam" ||
       param.kind === "queryCollectionParam"
     ) {
       const elementType = go.unwrapPtr(param.type.itemType);
@@ -1682,7 +1681,7 @@ function getRawParamValue(param: go.MethodParameter): string {
     case "uriParam":
       return "req.URL.Host";
     default:
-      throw new CodegenError("InternalError", `unhandled parameter ${param.name}`);
+      throw new CodegenError("InternalError", `unhandled parameter kind ${param.kind}`);
   }
 }
 
@@ -1722,7 +1721,6 @@ function getFinalParamValue(
     // optional params are always in their "final" form
     if (
       param.kind === "headerCollectionParam" ||
-      param.kind === "pathCollectionParam" ||
       param.kind === "queryCollectionParam"
     ) {
       // for required params that are collections of strings, we split them inline.
