@@ -1030,13 +1030,8 @@ export class ClientAdapter {
         opParam.correspondingMethodParams.includes(param)
       ) {
         const style = this.adaptParameterStyle(param);
-        const name = getEscapedReservedName(
-          helpers.getEffectiveName(param, go.isRequiredParameter(style)),
-          "Param",
-        );
-        for (const member of this.adaptQueryParameterGroup(
+        for (const member of this.adaptQueryParameters(
           queryType,
-          name,
           go.isRequiredParameter(style),
           optionalGroup,
           opParam.serializedName,
@@ -1332,6 +1327,23 @@ export class ClientAdapter {
             }
           }
         }
+      }
+    }
+
+    const parameterNames = new Set([
+      "ctx",
+      "client",
+      optionalGroup?.name ?? "options",
+      ...method.parameters
+        .filter((param) => !go.isQueryParameter(param) || !param.queryExpansion || param.group)
+        .map((param) => param.group?.name ?? param.name),
+    ]);
+    for (const param of method.parameters) {
+      if (go.isQueryParameter(param) && param.queryExpansion && !param.group) {
+        while (parameterNames.has(param.name)) {
+          param.name += "Param";
+        }
+        parameterNames.add(param.name);
       }
     }
 
@@ -2219,28 +2231,20 @@ export class ClientAdapter {
     return structType;
   }
 
-  private adaptQueryParameterGroup(
+  private adaptQueryParameters(
     model: tcgc.SdkModelType,
-    name: string,
     required: boolean,
     optionalGroup: go.ParameterGroup | undefined,
     queryParameter: string,
     explode: boolean,
   ): Array<go.QueryScalarParameter | go.QueryCollectionParameter> {
-    const modelName = helpers.getEffectiveName(model);
-    const groupName = this.ta.getPkg().models.some((payload) => payload.name === modelName)
-      ? `${modelName}QueryParameters`
-      : modelName;
-    const group = new go.ParameterGroup(this.ta.getPkg(), name, groupName, true, "method");
     const expansion: go.QueryExpansion = { queryParameter, explode };
     const params = new Array<go.QueryScalarParameter | go.QueryCollectionParameter>();
-    group.docs.summary = model.summary;
-    group.docs.description = model.doc;
     const { props, addlProps } = aggregateProperties(this.ta.ctx, model);
     if (addlProps || helpers.isPolymorphicRoot(model) || model.discriminatorValue) {
       throw new AdapterError(
         "UnsupportedTsp",
-        "query parameter groups cannot contain additional properties or polymorphism",
+        "query objects cannot contain additional properties or polymorphism",
         model.__raw?.node,
       );
     }
@@ -2248,11 +2252,10 @@ export class ClientAdapter {
       const type = this.adaptPathQueryType(prop.type);
       const style = this.adaptParameterStyle(required ? prop : { ...prop, optional: true });
       const byVal = go.isRequiredParameter(style) || go.isLiteralParameter(style);
-      const fieldName = helpers.getEffectiveName({
-        name: prop.name,
-        isExactName: prop.isExactName,
-        access: prop.access,
-      });
+      const fieldName = getEscapedReservedName(
+        helpers.getEffectiveName(prop, go.isRequiredParameter(style)),
+        "Param",
+      );
       const serializedName = prop.serializationOptions.json?.name ?? prop.serializedName;
       let param: go.QueryScalarParameter | go.QueryCollectionParameter;
       if (type.kind === "slice") {
@@ -2284,17 +2287,14 @@ export class ClientAdapter {
       } else {
         throw new AdapterError(
           "UnsupportedTsp",
-          `unsupported query parameter group field type ${prop.type.kind}`,
+          `unsupported query object field type ${prop.type.kind}`,
           prop.__raw?.node,
         );
       }
       param.queryExpansion = expansion;
       param.docs.summary = prop.summary;
       param.docs.description = prop.doc;
-      if (byVal) {
-        param.group = group;
-        group.params.push(param);
-      } else {
+      if (!byVal) {
         if (!optionalGroup) {
           throw new AdapterError(
             "InternalError",
@@ -2306,9 +2306,6 @@ export class ClientAdapter {
         optionalGroup.params.push(param);
       }
       params.push(param);
-    }
-    if (group.params.length > 0 && !this.parameterGroups.has(groupName)) {
-      this.parameterGroups.set(groupName, group);
     }
     return params;
   }

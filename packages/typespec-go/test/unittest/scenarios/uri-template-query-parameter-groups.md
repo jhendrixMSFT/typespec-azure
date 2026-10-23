@@ -1,4 +1,4 @@
-# Query objects group required fields and move optional fields into method options
+# Query objects flatten required fields and move optional fields into method options
 
 ```yaml
 generate-samples: true
@@ -28,6 +28,11 @@ model OptionalFilter {
   field?: string;
 }
 
+model CollisionFilter {
+  name: string;
+  parts: string;
+}
+
 @route("/subscriptions/{subscriptionId}/exploded{?filter*}")
 op exploded(@path subscriptionId: string, filter: Filter): void;
 
@@ -39,6 +44,14 @@ op mixed(@path subscriptionId: string, parts: Filter): void;
 
 @route("/subscriptions/{subscriptionId}/optional-fields{?filter}")
 op allOptional(@path subscriptionId: string, filter: OptionalFilter): void;
+
+@route("/subscriptions/{subscriptionId}/collisions/{name}{?filter,other}")
+op collisions(
+  @path subscriptionId: string,
+  @path name: string,
+  filter: CollisionFilter,
+  other: CollisionFilter,
+): void;
 
 @post
 @route("/subscriptions/{subscriptionId}/body")
@@ -88,12 +101,6 @@ package testmodule
 
 import "time"
 
-type FilterQueryParameters struct {
-	Dates   []time.Time
-	Enabled bool
-	Name    string
-}
-
 // QueryGroupsClientAllOptionalOptions contains the optional parameters for the QueryGroupsClient.AllOptional method.
 type QueryGroupsClientAllOptionalOptions struct {
 	Count *int32
@@ -102,6 +109,11 @@ type QueryGroupsClientAllOptionalOptions struct {
 
 // QueryGroupsClientBodyOptions contains the optional parameters for the QueryGroupsClient.Body method.
 type QueryGroupsClientBodyOptions struct {
+	// placeholder for future optional parameters
+}
+
+// QueryGroupsClientCollisionsOptions contains the optional parameters for the QueryGroupsClient.Collisions method.
+type QueryGroupsClientCollisionsOptions struct {
 	// placeholder for future optional parameters
 }
 
@@ -284,6 +296,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // QueryGroupsClient contains the methods for the QueryGroups group.
@@ -405,12 +418,67 @@ func (client *QueryGroupsClient) bodyHandleResponse(resp *http.Response, success
 	return result, nil
 }
 
+// Collisions -
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - options - QueryGroupsClientCollisionsOptions contains the optional parameters for the QueryGroupsClient.Collisions method.
+func (client *QueryGroupsClient) Collisions(ctx context.Context, name string, nameParam string, parts string, nameParamParam string, partsParam string, options *QueryGroupsClientCollisionsOptions) (QueryGroupsClientCollisionsResponse, error) {
+	var err error
+	req, err := client.collisionsCreateRequest(ctx, name, nameParam, parts, nameParamParam, partsParam, options)
+	if err != nil {
+		return QueryGroupsClientCollisionsResponse{}, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return QueryGroupsClientCollisionsResponse{}, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusNoContent) {
+		return QueryGroupsClientCollisionsResponse{}, runtime.NewResponseError(httpResp)
+	}
+	return QueryGroupsClientCollisionsResponse{}, nil
+}
+
+// collisionsCreateRequest creates the Collisions request.
+func (client *QueryGroupsClient) collisionsCreateRequest(ctx context.Context, name string, nameParam string, parts string, nameParamParam string, partsParam string, _ *QueryGroupsClientCollisionsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/collisions/{name}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if name == "" {
+		return nil, errors.New("parameter name cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{name}", url.PathEscape(name))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	{
+		queryParts := []string{}
+		queryParts = append(queryParts, "name", nameParam)
+		queryParts = append(queryParts, "parts", parts)
+		if len(queryParts) > 0 {
+			reqQP.Set("filter", strings.Join(queryParts, ","))
+		}
+	}
+	{
+		parts := []string{}
+		parts = append(parts, "name", nameParamParam)
+		parts = append(parts, "parts", partsParam)
+		if len(parts) > 0 {
+			reqQP.Set("other", strings.Join(parts, ","))
+		}
+	}
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	return req, nil
+}
+
 // Exploded -
 // If the operation fails it returns an *azcore.ResponseError type.
 //   - options - QueryGroupsClientExplodedOptions contains the optional parameters for the QueryGroupsClient.Exploded method.
-func (client *QueryGroupsClient) Exploded(ctx context.Context, filter FilterQueryParameters, options *QueryGroupsClientExplodedOptions) (QueryGroupsClientExplodedResponse, error) {
+func (client *QueryGroupsClient) Exploded(ctx context.Context, enabled bool, dates []time.Time, name string, options *QueryGroupsClientExplodedOptions) (QueryGroupsClientExplodedResponse, error) {
 	var err error
-	req, err := client.explodedCreateRequest(ctx, filter, options)
+	req, err := client.explodedCreateRequest(ctx, enabled, dates, name, options)
 	if err != nil {
 		return QueryGroupsClientExplodedResponse{}, err
 	}
@@ -425,7 +493,7 @@ func (client *QueryGroupsClient) Exploded(ctx context.Context, filter FilterQuer
 }
 
 // explodedCreateRequest creates the Exploded request.
-func (client *QueryGroupsClient) explodedCreateRequest(ctx context.Context, filter FilterQueryParameters, options *QueryGroupsClientExplodedOptions) (*policy.Request, error) {
+func (client *QueryGroupsClient) explodedCreateRequest(ctx context.Context, enabled bool, dates []time.Time, name string, options *QueryGroupsClientExplodedOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/exploded"
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
@@ -440,14 +508,14 @@ func (client *QueryGroupsClient) explodedCreateRequest(ctx context.Context, filt
 		reqQP.Set("count", strconv.FormatInt(int64(*options.Count), 10))
 	}
 	reqQP.Set("dates", strings.Join(func() []string {
-		encodedDates := make([]string, len(filter.Dates))
-		for i := 0; i < len(filter.Dates); i++ {
-			encodedDates[i] = datetime.RFC3339(filter.Dates[i].UTC()).String()
+		encodedDates := make([]string, len(dates))
+		for i := 0; i < len(dates); i++ {
+			encodedDates[i] = datetime.RFC3339(dates[i].UTC()).String()
 		}
 		return encodedDates
 	}(), ","))
-	reqQP.Set("display-name", filter.Name)
-	reqQP.Set("enabled", strconv.FormatBool(filter.Enabled))
+	reqQP.Set("display-name", name)
+	reqQP.Set("enabled", strconv.FormatBool(enabled))
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
@@ -455,9 +523,9 @@ func (client *QueryGroupsClient) explodedCreateRequest(ctx context.Context, filt
 // Mixed -
 // If the operation fails it returns an *azcore.ResponseError type.
 //   - options - QueryGroupsClientMixedOptions contains the optional parameters for the QueryGroupsClient.Mixed method.
-func (client *QueryGroupsClient) Mixed(ctx context.Context, parts FilterQueryParameters, options *QueryGroupsClientMixedOptions) (QueryGroupsClientMixedResponse, error) {
+func (client *QueryGroupsClient) Mixed(ctx context.Context, enabled bool, dates []time.Time, name string, options *QueryGroupsClientMixedOptions) (QueryGroupsClientMixedResponse, error) {
 	var err error
-	req, err := client.mixedCreateRequest(ctx, parts, options)
+	req, err := client.mixedCreateRequest(ctx, enabled, dates, name, options)
 	if err != nil {
 		return QueryGroupsClientMixedResponse{}, err
 	}
@@ -472,7 +540,7 @@ func (client *QueryGroupsClient) Mixed(ctx context.Context, parts FilterQueryPar
 }
 
 // mixedCreateRequest creates the Mixed request.
-func (client *QueryGroupsClient) mixedCreateRequest(ctx context.Context, parts FilterQueryParameters, options *QueryGroupsClientMixedOptions) (*policy.Request, error) {
+func (client *QueryGroupsClient) mixedCreateRequest(ctx context.Context, enabled bool, dates []time.Time, name string, options *QueryGroupsClientMixedOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/mixed"
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
@@ -484,21 +552,21 @@ func (client *QueryGroupsClient) mixedCreateRequest(ctx context.Context, parts F
 	}
 	reqQP := req.Raw().URL.Query()
 	{
-		queryParts := []string{}
+		parts := []string{}
 		if options != nil && options.Count != nil {
-			queryParts = append(queryParts, "count", strconv.FormatInt(int64(*options.Count), 10))
+			parts = append(parts, "count", strconv.FormatInt(int64(*options.Count), 10))
 		}
-		queryParts = append(queryParts, "enabled", strconv.FormatBool(parts.Enabled))
-		queryParts = append(queryParts, "dates", strings.Join(func() []string {
-			encodedDates := make([]string, len(parts.Dates))
-			for i := 0; i < len(parts.Dates); i++ {
-				encodedDates[i] = datetime.RFC3339(parts.Dates[i].UTC()).String()
+		parts = append(parts, "enabled", strconv.FormatBool(enabled))
+		parts = append(parts, "dates", strings.Join(func() []string {
+			encodedDates := make([]string, len(dates))
+			for i := 0; i < len(dates); i++ {
+				encodedDates[i] = datetime.RFC3339(dates[i].UTC()).String()
 			}
 			return encodedDates
 		}(), ","))
-		queryParts = append(queryParts, "display-name", parts.Name)
-		if len(queryParts) > 0 {
-			reqQP.Set("parts", strings.Join(queryParts, ","))
+		parts = append(parts, "display-name", name)
+		if len(parts) > 0 {
+			reqQP.Set("parts", strings.Join(parts, ","))
 		}
 	}
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
@@ -592,9 +660,9 @@ func ExampleQueryGroupsClient_Exploded() {
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
-	_, err = clientFactory.NewQueryGroupsClient().Exploded(ctx, testmodule.FilterQueryParameters{Enabled: false, Dates: []time.Time{
+	_, err = clientFactory.NewQueryGroupsClient().Exploded(ctx, false, []time.Time{
 		time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-	}, Name: "active"}, &testmodule.QueryGroupsClientExplodedOptions{
+	}, "active", &testmodule.QueryGroupsClientExplodedOptions{
 		Count: to.Ptr[int32](0)})
 	if err != nil {
 		log.Fatalf("failed to finish the request: %v", err)

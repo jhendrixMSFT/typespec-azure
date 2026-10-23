@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emitGoFor } from "./scenario-runner.js";
 
 describe("path expansion helper emission", () => {
-  it("does not emit payload models or serde for query-only parameter groups", async () => {
+  it("does not emit payload models or serde for flattened query objects", async () => {
     const files = await emitGoFor(`
       @service
       namespace Expansions;

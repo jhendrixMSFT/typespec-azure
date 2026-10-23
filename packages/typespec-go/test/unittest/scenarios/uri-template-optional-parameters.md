@@ -73,10 +73,6 @@ type ExpansionsClientRecordOptions struct {
 type ExpansionsClientRequiredQueryOptions struct {
 	Count *int32
 }
-
-type Filter struct {
-	Field string
-}
 ```
 
 ```go path_helpers
@@ -413,9 +409,9 @@ func (client *ExpansionsClient) recordCreateRequest(ctx context.Context, options
 // If the operation fails it returns an *azcore.ResponseError type.
 //   - options - ExpansionsClientRequiredQueryOptions contains the optional parameters for the ExpansionsClient.RequiredQuery
 //     method.
-func (client *ExpansionsClient) RequiredQuery(ctx context.Context, filter Filter, options *ExpansionsClientRequiredQueryOptions) (ExpansionsClientRequiredQueryResponse, error) {
+func (client *ExpansionsClient) RequiredQuery(ctx context.Context, field string, options *ExpansionsClientRequiredQueryOptions) (ExpansionsClientRequiredQueryResponse, error) {
 	var err error
-	req, err := client.requiredQueryCreateRequest(ctx, filter, options)
+	req, err := client.requiredQueryCreateRequest(ctx, field, options)
 	if err != nil {
 		return ExpansionsClientRequiredQueryResponse{}, err
 	}
@@ -430,7 +426,7 @@ func (client *ExpansionsClient) RequiredQuery(ctx context.Context, filter Filter
 }
 
 // requiredQueryCreateRequest creates the RequiredQuery request.
-func (client *ExpansionsClient) requiredQueryCreateRequest(ctx context.Context, filter Filter, options *ExpansionsClientRequiredQueryOptions) (*policy.Request, error) {
+func (client *ExpansionsClient) requiredQueryCreateRequest(ctx context.Context, field string, options *ExpansionsClientRequiredQueryOptions) (*policy.Request, error) {
 	urlPath := "/required-query"
 	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
 	if err != nil {
@@ -440,7 +436,7 @@ func (client *ExpansionsClient) requiredQueryCreateRequest(ctx context.Context, 
 	if options != nil && options.Count != nil {
 		reqQP.Set("count", strconv.FormatInt(int64(*options.Count), 10))
 	}
-	reqQP.Set("field", filter.Field)
+	reqQP.Set("field", field)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }

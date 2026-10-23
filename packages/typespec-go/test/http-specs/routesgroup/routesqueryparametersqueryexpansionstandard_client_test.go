@@ -6,7 +6,6 @@ package routesgroup_test
 import (
 	"context"
 	"net/url"
-	"routesgroup"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,7 +22,7 @@ func TestRoutesQueryStandard(t *testing.T) {
 	record, err := client.Record(context.Background(), map[string]int32{"b": 2, "a": 1}, nil)
 	require.NoError(t, err)
 	require.Zero(t, record)
-	model, err := client.Model(context.Background(), routesgroup.ExpandParameters{Field: "status", Value: "active"}, nil)
+	model, err := client.Model(context.Background(), "status", "active", nil)
 	require.NoError(t, err)
 	require.Zero(t, model)
 }
@@ -33,17 +32,15 @@ func TestRoutesQueryModelEscapesValues(t *testing.T) {
 		"param": {"field,a & b,value,x+y=z"},
 	})
 	client := root.NewRoutesQueryParametersClient().NewRoutesQueryParametersQueryExpansionClient().NewRoutesQueryParametersQueryExpansionStandardClient()
-	_, err := client.Model(context.Background(), routesgroup.ExpandParameters{
-		Field: "a & b", Value: "x+y=z",
-	}, nil)
+	_, err := client.Model(context.Background(), "a & b", "x+y=z", nil)
 	require.NoError(t, err)
 }
 
-func TestRoutesQueryStandardGroupPreservesZeroValues(t *testing.T) {
+func TestRoutesQueryStandardModelPreservesZeroValues(t *testing.T) {
 	root := newRoutesRequestClient(t, "/routes/query/query-expansion/standard/model", url.Values{
 		"param": {"field,,value,"},
 	})
 	client := root.NewRoutesQueryParametersClient().NewRoutesQueryParametersQueryExpansionClient().NewRoutesQueryParametersQueryExpansionStandardClient()
-	_, err := client.Model(context.Background(), routesgroup.ExpandParameters{}, nil)
+	_, err := client.Model(context.Background(), "", "", nil)
 	require.NoError(t, err)
 }

@@ -6,7 +6,6 @@ package routesgroup_test
 import (
 	"context"
 	"net/url"
-	"routesgroup"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,7 +22,7 @@ func TestRoutesQueryContinuationExplode(t *testing.T) {
 	record, err := client.Record(context.Background(), map[string]int32{"b": 2, "a": 1}, nil)
 	require.NoError(t, err)
 	require.Zero(t, record)
-	model, err := client.Model(context.Background(), routesgroup.ExpandParameters{Field: "status", Value: "active"}, nil)
+	model, err := client.Model(context.Background(), "status", "active", nil)
 	require.NoError(t, err)
 	require.Zero(t, model)
 }

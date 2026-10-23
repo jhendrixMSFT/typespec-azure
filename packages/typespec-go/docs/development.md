@@ -169,16 +169,13 @@ required-value validation.
 Path/query slices and maps use value elements independently of `slice-elements-byval`.
 Their formatters return strings without an element-skipping flag. Explicitly nullable
 collection entries are unsupported and produce a diagnostic instead of being omitted.
-Named query objects use parameter groups emitted in `options.go`, without payload tags
-or generated serde. Only required fields belong to the named group and are passed by
-value. Optional fields go into the method's options group, retaining normal presence
-semantics; the named group disappears when no required fields remain. Fields of an
+Named query objects are flattened into discrete method parameters, without generating
+a query-specific struct or serde. Required fields are passed by value. Optional fields
+go into the method's options group, retaining normal presence semantics. Fields of an
 optional query object are all optional. URI-template expansion metadata is independent
 of Go argument grouping, so non-exploded objects still join their present fields into
-one query value. Models also used in request/response bodies retain a separate payload
-representation and its normal pointer/serde behavior.
-Query-only groups keep the modeled type name. If a payload model also uses that name,
-the query group receives a `QueryParameters` suffix to avoid duplicate Go types.
+one query value. Models also used in request/response bodies retain their normal payload
+representation and pointer/serde behavior.
 
 ### Diff the regenerated code
 
