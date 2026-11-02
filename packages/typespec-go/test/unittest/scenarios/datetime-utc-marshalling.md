@@ -94,8 +94,8 @@ func (client *DateTimeUTCClient) Put(ctx context.Context, body Schedule, options
 
 // putCreateRequest creates the Put request.
 func (client *DateTimeUTCClient) putCreateRequest(ctx context.Context, body Schedule, options *DateTimeUTCClientPutOptions) (*policy.Request, error) {
-	urlPath := "/schedule"
-	req, err := runtime.NewRequest(ctx, http.MethodPut, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/schedule")
+	req, err := runtime.NewRequest(ctx, http.MethodPut, urlPath)
 	if err != nil {
 		return nil, err
 	}

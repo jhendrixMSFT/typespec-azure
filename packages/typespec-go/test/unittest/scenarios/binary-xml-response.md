@@ -84,8 +84,8 @@ func (client *RegressionsClient) BinaryResponseWithXMLContentType(ctx context.Co
 
 // binaryResponseWithXMLContentTypeCreateRequest creates the BinaryResponseWithXMLContentType request.
 func (client *RegressionsClient) binaryResponseWithXMLContentTypeCreateRequest(ctx context.Context, _ *RegressionsClientBinaryResponseWithXMLContentTypeOptions) (*policy.Request, error) {
-	urlPath := "/binary-response-with-xml-content-type"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/binary-response-with-xml-content-type")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}

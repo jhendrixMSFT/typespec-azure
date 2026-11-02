@@ -95,8 +95,8 @@ func (client *RegressionsClient) ForceRequiredBodyPatch(ctx context.Context, bod
 
 // forceRequiredBodyPatchCreateRequest creates the ForceRequiredBodyPatch request.
 func (client *RegressionsClient) forceRequiredBodyPatchCreateRequest(ctx context.Context, body SomeModel, _ *RegressionsClientForceRequiredBodyPatchOptions) (*policy.Request, error) {
-	urlPath := "/force-required-body-patch"
-	req, err := runtime.NewRequest(ctx, http.MethodPatch, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/force-required-body-patch")
+	req, err := runtime.NewRequest(ctx, http.MethodPatch, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +129,8 @@ func (client *RegressionsClient) ForceRequiredBodyPut(ctx context.Context, body 
 
 // forceRequiredBodyPutCreateRequest creates the ForceRequiredBodyPut request.
 func (client *RegressionsClient) forceRequiredBodyPutCreateRequest(ctx context.Context, body SomeModel, _ *RegressionsClientForceRequiredBodyPutOptions) (*policy.Request, error) {
-	urlPath := "/force-required-body-put"
-	req, err := runtime.NewRequest(ctx, http.MethodPut, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/force-required-body-put")
+	req, err := runtime.NewRequest(ctx, http.MethodPut, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +163,8 @@ func (client *RegressionsClient) OptionalBinaryBody(ctx context.Context, options
 
 // optionalBinaryBodyCreateRequest creates the OptionalBinaryBody request.
 func (client *RegressionsClient) optionalBinaryBodyCreateRequest(ctx context.Context, options *RegressionsClientOptionalBinaryBodyOptions) (*policy.Request, error) {
-	urlPath := "/optional-binary-payload"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/optional-binary-payload")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +200,8 @@ func (client *RegressionsClient) OptionalBodyPost(ctx context.Context, options *
 
 // optionalBodyPostCreateRequest creates the OptionalBodyPost request.
 func (client *RegressionsClient) optionalBodyPostCreateRequest(ctx context.Context, options *RegressionsClientOptionalBodyPostOptions) (*policy.Request, error) {
-	urlPath := "/optional-body-post"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/optional-body-post")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

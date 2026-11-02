@@ -94,8 +94,8 @@ func (client *RegressionsClient) GetBool(ctx context.Context, options *Regressio
 
 // getBoolCreateRequest creates the GetBool request.
 func (client *RegressionsClient) getBoolCreateRequest(ctx context.Context, _ *RegressionsClientGetBoolOptions) (*policy.Request, error) {
-	urlPath := "/text-body-as-bool"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/text-body-as-bool")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +139,8 @@ func (client *RegressionsClient) GetFloat(ctx context.Context, options *Regressi
 
 // getFloatCreateRequest creates the GetFloat request.
 func (client *RegressionsClient) getFloatCreateRequest(ctx context.Context, _ *RegressionsClientGetFloatOptions) (*policy.Request, error) {
-	urlPath := "/text-body-as-float"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/text-body-as-float")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +184,8 @@ func (client *RegressionsClient) GetInteger(ctx context.Context, options *Regres
 
 // getIntegerCreateRequest creates the GetInteger request.
 func (client *RegressionsClient) getIntegerCreateRequest(ctx context.Context, _ *RegressionsClientGetIntegerOptions) (*policy.Request, error) {
-	urlPath := "/text-body-as-int"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/text-body-as-int")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}

@@ -75,8 +75,8 @@ func (client *PagerWidgetsClient) newListPager(options *pagerWidgetsClientListOp
 
 // listCreateRequest creates the list request.
 func (client *PagerWidgetsClient) listCreateRequest(ctx context.Context, _ *pagerWidgetsClientListOptions) (*policy.Request, error) {
-	urlPath := "/widgets"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}

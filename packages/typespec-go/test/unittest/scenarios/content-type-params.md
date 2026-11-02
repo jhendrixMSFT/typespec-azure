@@ -102,8 +102,8 @@ func (client *RegressionsClient) BinaryBodyWithContentType(ctx context.Context, 
 
 // binaryBodyWithContentTypeCreateRequest creates the BinaryBodyWithContentType request.
 func (client *RegressionsClient) binaryBodyWithContentTypeCreateRequest(ctx context.Context, payload io.ReadSeekCloser, contentType string, _ *RegressionsClientBinaryBodyWithContentTypeOptions) (*policy.Request, error) {
-	urlPath := "/binary-payload-with-content-type"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/binary-payload-with-content-type")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -135,8 +135,8 @@ func (client *RegressionsClient) OptionalBinaryBodyWithContentType(ctx context.C
 
 // optionalBinaryBodyWithContentTypeCreateRequest creates the OptionalBinaryBodyWithContentType request.
 func (client *RegressionsClient) optionalBinaryBodyWithContentTypeCreateRequest(ctx context.Context, options *RegressionsClientOptionalBinaryBodyWithContentTypeOptions) (*policy.Request, error) {
-	urlPath := "/optional-binary-payload-with-content-type"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/optional-binary-payload-with-content-type")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -175,8 +175,8 @@ func (client *RegressionsClient) PayloadWithExplicitContentType(ctx context.Cont
 
 // payloadWithExplicitContentTypeCreateRequest creates the PayloadWithExplicitContentType request.
 func (client *RegressionsClient) payloadWithExplicitContentTypeCreateRequest(ctx context.Context, contentType PayloadWithExplicitContentTypeRequestContentType, thing SomeModel, _ *RegressionsClientPayloadWithExplicitContentTypeOptions) (*policy.Request, error) {
-	urlPath := "/payload-with-explicit-content-type"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/payload-with-explicit-content-type")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

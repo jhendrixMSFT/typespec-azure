@@ -125,8 +125,8 @@ func (client *LroClient) createWidget(ctx context.Context, apiVersion string, bo
 
 // createWidgetCreateRequest creates the createWidget request.
 func (client *LroClient) createWidgetCreateRequest(ctx context.Context, apiVersion string, body widgetOptions, _ *lroClientBeginCreateWidgetOptions) (*policy.Request, error) {
-	urlPath := "/widgets:create"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets:create")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

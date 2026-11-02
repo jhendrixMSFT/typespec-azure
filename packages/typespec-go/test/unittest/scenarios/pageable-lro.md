@@ -155,7 +155,7 @@ func (client *PageableLROsClient) listPrivateEndPointsCreateRequest(ctx context.
 	var req *policy.Request
 	var err error
 	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/PageableLROs/resourceSegment/{resourceName}"
+		urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/PageableLROs/resourceSegment/{resourceName}")
 		if client.subscriptionID == "" {
 			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
@@ -168,7 +168,7 @@ func (client *PageableLROsClient) listPrivateEndPointsCreateRequest(ctx context.
 			return nil, errors.New("parameter resourceName cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{resourceName}", url.PathEscape(resourceName))
-		req, err = runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+		req, err = runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	} else {
 		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
 	}

@@ -153,8 +153,8 @@ func (client *SpansClient) createWidget(ctx context.Context, apiVersion string, 
 
 // createWidgetCreateRequest creates the createWidget request.
 func (client *SpansClient) createWidgetCreateRequest(ctx context.Context, apiVersion string, body Widget, _ *SpansClientBeginCreateWidgetOptions) (*policy.Request, error) {
-	urlPath := "/widgets:create"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets:create")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +190,8 @@ func (client *SpansClient) Collision(ctx context.Context, resp string, options *
 
 // collisionCreateRequest creates the Collision request.
 func (client *SpansClient) collisionCreateRequest(ctx context.Context, resp string, _ *SpansClientCollisionOptions) (*policy.Request, error) {
-	urlPath := "/collision"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/collision")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +238,8 @@ func (client *SpansClient) Empty(ctx context.Context, options *SpansClientEmptyO
 
 // emptyCreateRequest creates the Empty request.
 func (client *SpansClient) emptyCreateRequest(ctx context.Context, _ *SpansClientEmptyOptions) (*policy.Request, error) {
-	urlPath := "/empty"
-	req, err := runtime.NewRequest(ctx, http.MethodDelete, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/empty")
+	req, err := runtime.NewRequest(ctx, http.MethodDelete, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -268,8 +268,8 @@ func (client *SpansClient) Exists(ctx context.Context, options *SpansClientExist
 
 // existsCreateRequest creates the Exists request.
 func (client *SpansClient) existsCreateRequest(ctx context.Context, _ *SpansClientExistsOptions) (*policy.Request, error) {
-	urlPath := "/exists"
-	req, err := runtime.NewRequest(ctx, http.MethodHead, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/exists")
+	req, err := runtime.NewRequest(ctx, http.MethodHead, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -297,8 +297,8 @@ func (client *SpansClient) Headers(ctx context.Context, options *SpansClientHead
 
 // headersCreateRequest creates the Headers request.
 func (client *SpansClient) headersCreateRequest(ctx context.Context, _ *SpansClientHeadersOptions) (*policy.Request, error) {
-	urlPath := "/headers"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/headers")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -338,8 +338,8 @@ func (client *SpansClient) Modeled(ctx context.Context, options *SpansClientMode
 
 // modeledCreateRequest creates the Modeled request.
 func (client *SpansClient) modeledCreateRequest(ctx context.Context, _ *SpansClientModeledOptions) (*policy.Request, error) {
-	urlPath := "/modeled"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/modeled")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -381,8 +381,8 @@ func (client *SpansClient) MultipleCollisions(ctx context.Context, resp string, 
 
 // multipleCollisionsCreateRequest creates the MultipleCollisions request.
 func (client *SpansClient) multipleCollisionsCreateRequest(ctx context.Context, resp string, response string, response0 string, _ *SpansClientMultipleCollisionsOptions) (*policy.Request, error) {
-	urlPath := "/multiple-collisions"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/multiple-collisions")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -557,8 +557,8 @@ func (client *SpansClient) createWidget(ctx context.Context, apiVersion string, 
 
 // createWidgetCreateRequest creates the createWidget request.
 func (client *SpansClient) createWidgetCreateRequest(ctx context.Context, apiVersion string, body Widget, _ *SpansClientBeginCreateWidgetOptions) (*policy.Request, error) {
-	urlPath := "/widgets:create"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets:create")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -591,8 +591,8 @@ func (client *SpansClient) Collision(ctx context.Context, resp string, options *
 
 // collisionCreateRequest creates the Collision request.
 func (client *SpansClient) collisionCreateRequest(ctx context.Context, resp string, _ *SpansClientCollisionOptions) (*policy.Request, error) {
-	urlPath := "/collision"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/collision")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -636,8 +636,8 @@ func (client *SpansClient) Empty(ctx context.Context, options *SpansClientEmptyO
 
 // emptyCreateRequest creates the Empty request.
 func (client *SpansClient) emptyCreateRequest(ctx context.Context, _ *SpansClientEmptyOptions) (*policy.Request, error) {
-	urlPath := "/empty"
-	req, err := runtime.NewRequest(ctx, http.MethodDelete, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/empty")
+	req, err := runtime.NewRequest(ctx, http.MethodDelete, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -663,8 +663,8 @@ func (client *SpansClient) Exists(ctx context.Context, options *SpansClientExist
 
 // existsCreateRequest creates the Exists request.
 func (client *SpansClient) existsCreateRequest(ctx context.Context, _ *SpansClientExistsOptions) (*policy.Request, error) {
-	urlPath := "/exists"
-	req, err := runtime.NewRequest(ctx, http.MethodHead, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/exists")
+	req, err := runtime.NewRequest(ctx, http.MethodHead, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -689,8 +689,8 @@ func (client *SpansClient) Headers(ctx context.Context, options *SpansClientHead
 
 // headersCreateRequest creates the Headers request.
 func (client *SpansClient) headersCreateRequest(ctx context.Context, _ *SpansClientHeadersOptions) (*policy.Request, error) {
-	urlPath := "/headers"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/headers")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -727,8 +727,8 @@ func (client *SpansClient) Modeled(ctx context.Context, options *SpansClientMode
 
 // modeledCreateRequest creates the Modeled request.
 func (client *SpansClient) modeledCreateRequest(ctx context.Context, _ *SpansClientModeledOptions) (*policy.Request, error) {
-	urlPath := "/modeled"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/modeled")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -767,8 +767,8 @@ func (client *SpansClient) MultipleCollisions(ctx context.Context, resp string, 
 
 // multipleCollisionsCreateRequest creates the MultipleCollisions request.
 func (client *SpansClient) multipleCollisionsCreateRequest(ctx context.Context, resp string, response string, response0 string, _ *SpansClientMultipleCollisionsOptions) (*policy.Request, error) {
-	urlPath := "/multiple-collisions"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/multiple-collisions")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -942,8 +942,8 @@ func (client *SpansClient) createWidget(ctx context.Context, apiVersion string, 
 
 // createWidgetCreateRequest creates the createWidget request.
 func (client *SpansClient) createWidgetCreateRequest(ctx context.Context, apiVersion string, body Widget, _ *SpansClientBeginCreateWidgetOptions) (*policy.Request, error) {
-	urlPath := "/widgets:create"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets:create")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -976,8 +976,8 @@ func (client *SpansClient) Collision(ctx context.Context, resp string, options *
 
 // collisionCreateRequest creates the Collision request.
 func (client *SpansClient) collisionCreateRequest(ctx context.Context, resp string, _ *SpansClientCollisionOptions) (*policy.Request, error) {
-	urlPath := "/collision"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/collision")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1021,8 +1021,8 @@ func (client *SpansClient) Empty(ctx context.Context, options *SpansClientEmptyO
 
 // emptyCreateRequest creates the Empty request.
 func (client *SpansClient) emptyCreateRequest(ctx context.Context, _ *SpansClientEmptyOptions) (*policy.Request, error) {
-	urlPath := "/empty"
-	req, err := runtime.NewRequest(ctx, http.MethodDelete, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/empty")
+	req, err := runtime.NewRequest(ctx, http.MethodDelete, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1048,8 +1048,8 @@ func (client *SpansClient) Exists(ctx context.Context, options *SpansClientExist
 
 // existsCreateRequest creates the Exists request.
 func (client *SpansClient) existsCreateRequest(ctx context.Context, _ *SpansClientExistsOptions) (*policy.Request, error) {
-	urlPath := "/exists"
-	req, err := runtime.NewRequest(ctx, http.MethodHead, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/exists")
+	req, err := runtime.NewRequest(ctx, http.MethodHead, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1074,8 +1074,8 @@ func (client *SpansClient) Headers(ctx context.Context, options *SpansClientHead
 
 // headersCreateRequest creates the Headers request.
 func (client *SpansClient) headersCreateRequest(ctx context.Context, _ *SpansClientHeadersOptions) (*policy.Request, error) {
-	urlPath := "/headers"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/headers")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1112,8 +1112,8 @@ func (client *SpansClient) Modeled(ctx context.Context, options *SpansClientMode
 
 // modeledCreateRequest creates the Modeled request.
 func (client *SpansClient) modeledCreateRequest(ctx context.Context, _ *SpansClientModeledOptions) (*policy.Request, error) {
-	urlPath := "/modeled"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/modeled")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1152,8 +1152,8 @@ func (client *SpansClient) MultipleCollisions(ctx context.Context, resp string, 
 
 // multipleCollisionsCreateRequest creates the MultipleCollisions request.
 func (client *SpansClient) multipleCollisionsCreateRequest(ctx context.Context, resp string, response string, response0 string, _ *SpansClientMultipleCollisionsOptions) (*policy.Request, error) {
-	urlPath := "/multiple-collisions"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/multiple-collisions")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}

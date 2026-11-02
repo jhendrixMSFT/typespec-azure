@@ -66,8 +66,8 @@ func (client *WidgetClient) Get(ctx context.Context, options *WidgetClientGetOpt
 
 // getCreateRequest creates the Get request.
 func (client *WidgetClient) getCreateRequest(ctx context.Context, _ *WidgetClientGetOptions) (*policy.Request, error) {
-	urlPath := "/widget"
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widget")
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}

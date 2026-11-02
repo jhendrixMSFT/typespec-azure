@@ -114,8 +114,8 @@ func (client *LroClient) importOperation(ctx context.Context, apiVersion string,
 
 // importCreateRequest creates the import request.
 func (client *LroClient) importCreateRequest(ctx context.Context, apiVersion string, body WidgetOptions, _ *LroClientBeginImportOptions) (*policy.Request, error) {
-	urlPath := "/widgets:import"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets:import")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -275,8 +275,8 @@ func (client *LroClient) typeOperation(ctx context.Context, apiVersion string, b
 
 // typeCreateRequest creates the type request.
 func (client *LroClient) typeCreateRequest(ctx context.Context, apiVersion string, body widgetOptions, _ *lroClientBeginTypeOptions) (*policy.Request, error) {
-	urlPath := "/widgets:type"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/widgets:type")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +476,7 @@ func (client *PageableLROsClient) returnCreateRequest(ctx context.Context, apiVe
 	var req *policy.Request
 	var err error
 	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/PageableLROs/resourceSegment/{resourceName}"
+		urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/PageableLROs/resourceSegment/{resourceName}")
 		if client.subscriptionID == "" {
 			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
@@ -489,7 +489,7 @@ func (client *PageableLROsClient) returnCreateRequest(ctx context.Context, apiVe
 			return nil, errors.New("parameter resourceName cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{resourceName}", url.PathEscape(resourceName))
-		req, err = runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+		req, err = runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	} else {
 		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
 	}

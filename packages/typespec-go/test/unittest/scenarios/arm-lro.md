@@ -183,7 +183,7 @@ func (client *LROClient) okResponseWithAsyncHeader(ctx context.Context, apiVersi
 
 // okResponseWithAsyncHeaderCreateRequest creates the okResponseWithAsyncHeader request.
 func (client *LROClient) okResponseWithAsyncHeaderCreateRequest(ctx context.Context, apiVersion string, resourceGroupName string, lroModelName string, resource TestLROModel, _ *LROClientBeginOkResponseWithAsyncHeaderOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/LROModels/{LROModelName}"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/LROModels/{LROModelName}")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -196,7 +196,7 @@ func (client *LROClient) okResponseWithAsyncHeaderCreateRequest(ctx context.Cont
 		return nil, errors.New("parameter lroModelName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{LROModelName}", url.PathEscape(lroModelName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (client *LROClient) scalarResult(ctx context.Context, apiVersion string, re
 
 // scalarResultCreateRequest creates the scalarResult request.
 func (client *LROClient) scalarResultCreateRequest(ctx context.Context, apiVersion string, resourceGroupName string, lroModelName string, body ActionRequest, _ *LROClientBeginScalarResultOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/LROModels/{LROModelName}/scalarResult"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/LROModels/{LROModelName}/scalarResult")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -261,7 +261,7 @@ func (client *LROClient) scalarResultCreateRequest(ctx context.Context, apiVersi
 		return nil, errors.New("parameter lroModelName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{LROModelName}", url.PathEscape(lroModelName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

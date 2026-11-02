@@ -244,12 +244,12 @@ func (client *TenantItemsClient) Get(ctx context.Context, apiVersion string, ten
 
 // getCreateRequest creates the Get request.
 func (client *TenantItemsClient) getCreateRequest(ctx context.Context, apiVersion string, tenantItemName string, _ *TenantItemsClientGetOptions) (*policy.Request, error) {
-	urlPath := "/providers/Microsoft.Test/tenantItems/{tenantItemName}"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/providers/Microsoft.Test/tenantItems/{tenantItemName}")
 	if tenantItemName == "" {
 		return nil, errors.New("parameter tenantItemName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{tenantItemName}", url.PathEscape(tenantItemName))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +304,8 @@ func (client *TenantItemsClient) listCreateRequest(ctx context.Context, apiVersi
 	var req *policy.Request
 	var err error
 	if firstPage {
-		urlPath := "/providers/Microsoft.Test/tenantItems"
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+		urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/providers/Microsoft.Test/tenantItems")
+		req, err = runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	} else {
 		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
 	}

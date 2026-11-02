@@ -40,6 +40,13 @@ model CollisionFilter {
   count?: int32;
 }
 
+model LiteralFilter {
+  kind: "fixed";
+}
+
+@route("/subscriptions/{subscriptionId}/literal{?filter}")
+op literal(@path subscriptionId: string, filter: LiteralFilter): void;
+
 @route("/subscriptions/{subscriptionId}/exploded{?filter*}")
 op exploded(@path subscriptionId: string, filter: Filter): void;
 
@@ -124,6 +131,30 @@ op body(@path subscriptionId: string, @body payload: Payload): Payload;
     "payload": { "filter": { "value": "empty", "dates": {}, "timestamps": [] } }
   },
   "responses": { "200": { "body": {} } }
+}
+```
+
+```json examples/literal.json
+{
+  "operationId": "literal",
+  "title": "literal",
+  "parameters": {
+    "subscriptionId": "00000000-0000-0000-0000-000000000000",
+    "filter": { "kind": "fixed" }
+  },
+  "responses": { "204": {} }
+}
+```
+
+```json examples/standard-count.json
+{
+  "operationId": "standard",
+  "title": "standard count only",
+  "parameters": {
+    "subscriptionId": "00000000-0000-0000-0000-000000000000",
+    "filter": { "count": 0 }
+  },
+  "responses": { "204": {} }
 }
 ```
 
@@ -232,6 +263,11 @@ type QueryGroupsClientCollisionsOptions struct {
 // QueryGroupsClientExplodedOptions contains the optional parameters for the QueryGroupsClient.Exploded method.
 type QueryGroupsClientExplodedOptions struct {
 	Count *int32
+}
+
+// QueryGroupsClientLiteralOptions contains the optional parameters for the QueryGroupsClient.Literal method.
+type QueryGroupsClientLiteralOptions struct {
+	// placeholder for future optional parameters
 }
 
 // QueryGroupsClientMixedOptions contains the optional parameters for the QueryGroupsClient.Mixed method.
@@ -447,12 +483,12 @@ func (client *QueryGroupsClient) AllOptional(ctx context.Context, options *Query
 
 // allOptionalCreateRequest creates the AllOptional request.
 func (client *QueryGroupsClient) allOptionalCreateRequest(ctx context.Context, options *QueryGroupsClientAllOptionalOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/optional-fields"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/optional-fields")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -497,12 +533,12 @@ func (client *QueryGroupsClient) Body(ctx context.Context, payload Payload, opti
 
 // bodyCreateRequest creates the Body request.
 func (client *QueryGroupsClient) bodyCreateRequest(ctx context.Context, payload Payload, _ *QueryGroupsClientBodyOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/body"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/body")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +583,7 @@ func (client *QueryGroupsClient) Collisions(ctx context.Context, name string, fi
 
 // collisionsCreateRequest creates the Collisions request.
 func (client *QueryGroupsClient) collisionsCreateRequest(ctx context.Context, name string, filter CollisionFilter, other CollisionFilter, options *QueryGroupsClientCollisionsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/collisions/{name}"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/collisions/{name}")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -556,7 +592,7 @@ func (client *QueryGroupsClient) collisionsCreateRequest(ctx context.Context, na
 		return nil, errors.New("parameter name cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{name}", url.PathEscape(name))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -608,12 +644,12 @@ func (client *QueryGroupsClient) Exploded(ctx context.Context, filter Filter, op
 
 // explodedCreateRequest creates the Exploded request.
 func (client *QueryGroupsClient) explodedCreateRequest(ctx context.Context, filter Filter, options *QueryGroupsClientExplodedOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/exploded"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/exploded")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -625,6 +661,43 @@ func (client *QueryGroupsClient) explodedCreateRequest(ctx context.Context, filt
 	reqQP.Set("display-name", filter.Name)
 	reqQP.Set("enabled", strconv.FormatBool(filter.Enabled))
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	return req, nil
+}
+
+// Literal -
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - options - QueryGroupsClientLiteralOptions contains the optional parameters for the QueryGroupsClient.Literal method.
+func (client *QueryGroupsClient) Literal(ctx context.Context, options *QueryGroupsClientLiteralOptions) (QueryGroupsClientLiteralResponse, error) {
+	var err error
+	req, err := client.literalCreateRequest(ctx, options)
+	if err != nil {
+		return QueryGroupsClientLiteralResponse{}, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return QueryGroupsClientLiteralResponse{}, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusNoContent) {
+		return QueryGroupsClientLiteralResponse{}, runtime.NewResponseError(httpResp)
+	}
+	return QueryGroupsClientLiteralResponse{}, nil
+}
+
+// literalCreateRequest creates the Literal request.
+func (client *QueryGroupsClient) literalCreateRequest(ctx context.Context, _ *QueryGroupsClientLiteralOptions) (*policy.Request, error) {
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/literal")
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	rawQueryValues := url.Values{}
+	setQueryExpansion(rawQueryValues, "filter", "kind", "fixed")
+	req.Raw().URL.RawQuery = encodeQuery(reqQP, rawQueryValues)
 	return req, nil
 }
 
@@ -649,12 +722,12 @@ func (client *QueryGroupsClient) Mixed(ctx context.Context, parts Filter, option
 
 // mixedCreateRequest creates the Mixed request.
 func (client *QueryGroupsClient) mixedCreateRequest(ctx context.Context, parts Filter, options *QueryGroupsClientMixedOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/mixed"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/mixed")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -695,12 +768,12 @@ func (client *QueryGroupsClient) Standard(ctx context.Context, options *QueryGro
 
 // standardCreateRequest creates the Standard request.
 func (client *QueryGroupsClient) standardCreateRequest(ctx context.Context, options *QueryGroupsClientStandardOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/standard"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/standard")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -791,8 +864,10 @@ func ExampleQueryGroupsClient_Collisions() {
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
-	_, err = clientFactory.NewQueryGroupsClient().Collisions(ctx, "path-name", testmodule.CollisionFilter{Name: "<Name>", Parts: "<Parts>"}, testmodule.CollisionFilter{Name: "<Name>", Parts: "<Parts>"}, &testmodule.QueryGroupsClientCollisionsOptions{
-		Count: to.Ptr[int32](2)})
+	_, err = clientFactory.NewQueryGroupsClient().Collisions(ctx, "path-name", testmodule.CollisionFilter{Name: "first", Parts: "a"}, testmodule.CollisionFilter{Name: "second", Parts: "b"}, &testmodule.QueryGroupsClientCollisionsOptions{
+		FilterCount: to.Ptr[int32](0),
+		OtherCount:  to.Ptr[int32](1),
+		Count:       to.Ptr[int32](2)})
 	if err != nil {
 		log.Fatalf("failed to finish the request: %v", err)
 	}
@@ -809,14 +884,15 @@ func ExampleQueryGroupsClient_Exploded() {
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
-	_, err = clientFactory.NewQueryGroupsClient().Exploded(ctx, testmodule.Filter{Enabled: false, Date: time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC), Name: "<Name>"}, nil)
+	_, err = clientFactory.NewQueryGroupsClient().Exploded(ctx, testmodule.Filter{Enabled: false, Date: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC), Name: "active"}, &testmodule.QueryGroupsClientExplodedOptions{
+		Count: to.Ptr[int32](0)})
 	if err != nil {
 		log.Fatalf("failed to finish the request: %v", err)
 	}
 }
 
-// Generated from example definition: standard.json
-func ExampleQueryGroupsClient_Standard() {
+// Generated from example definition: literal.json
+func ExampleQueryGroupsClient_Literal() {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		log.Fatalf("failed to obtain a credential: %v", err)
@@ -826,7 +902,46 @@ func ExampleQueryGroupsClient_Standard() {
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
-	_, err = clientFactory.NewQueryGroupsClient().Standard(ctx, nil)
+	_, err = clientFactory.NewQueryGroupsClient().Literal(ctx, nil)
+	if err != nil {
+		log.Fatalf("failed to finish the request: %v", err)
+	}
+}
+
+// Generated from example definition: standard-count.json
+func ExampleQueryGroupsClient_Standard_standardCountOnly() {
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		log.Fatalf("failed to obtain a credential: %v", err)
+	}
+	ctx := context.Background()
+	clientFactory, err := testmodule.NewClientFactory("00000000-0000-0000-0000-000000000000", cred, nil)
+	if err != nil {
+		log.Fatalf("failed to create client: %v", err)
+	}
+	_, err = clientFactory.NewQueryGroupsClient().Standard(ctx, &testmodule.QueryGroupsClientStandardOptions{
+		Count: to.Ptr[int32](0)})
+	if err != nil {
+		log.Fatalf("failed to finish the request: %v", err)
+	}
+}
+
+// Generated from example definition: standard.json
+func ExampleQueryGroupsClient_Standard_standard() {
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		log.Fatalf("failed to obtain a credential: %v", err)
+	}
+	ctx := context.Background()
+	clientFactory, err := testmodule.NewClientFactory("00000000-0000-0000-0000-000000000000", cred, nil)
+	if err != nil {
+		log.Fatalf("failed to create client: %v", err)
+	}
+	_, err = clientFactory.NewQueryGroupsClient().Standard(ctx, &testmodule.QueryGroupsClientStandardOptions{
+		Count:   to.Ptr[int32](0),
+		Enabled: to.Ptr(false),
+		Date:    to.Ptr(time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)),
+		Name:    to.Ptr("active")})
 	if err != nil {
 		log.Fatalf("failed to finish the request: %v", err)
 	}

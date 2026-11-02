@@ -82,8 +82,8 @@ func (client *RegressionsClient) WithExpandParam(ctx context.Context, expand str
 
 // withExpandParamCreateRequest creates the WithExpandParam request.
 func (client *RegressionsClient) withExpandParamCreateRequest(ctx context.Context, expand string, options *RegressionsClientWithExpandParamOptions) (*policy.Request, error) {
-	urlPath := "/fixed-param-name"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/fixed-param-name")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ import { CodegenError } from "../core/errors.js";
 import * as helpers from "../core/helpers.js";
 import { ImportManager } from "../core/imports.js";
 import { getPathExpansionStyle } from "../core/path-expansion.js";
+import { isRawQueryExpansion } from "../core/query-expansion.js";
 import { generateServerInternal, RequiredHelpers } from "./internal.js";
 import { parseURITemplateParameter } from "./uri-template.js";
 
@@ -628,8 +629,7 @@ function dispatchForOperationBody(
       (each: go.QueryParameter) =>
         each.location === "method" &&
         !go.isLiteralParameter(each.style) &&
-        each.queryExpansion?.explode !== false &&
-        (each.kind !== "queryMapParam" || each.explode),
+        !isRawQueryExpansion(each),
     )
   ) {
     content += `${indent.get()}qp := req.URL.Query()\n`;
@@ -1244,8 +1244,8 @@ function parseHeaderPathQueryParams(
     (param) =>
       param.location === "method" &&
       !go.isLiteralParameter(param.style) &&
-      ((param.kind === "queryMapParam" && !param.explode) ||
-        (go.isQueryParameter(param) && param.queryExpansion?.explode === false)),
+      go.isQueryParameter(param) &&
+      isRawQueryExpansion(param),
   );
   const rawQueryVariable = rawQuery ? allocateLocalName("rawQP") : "";
   if (rawQuery) {
@@ -1315,7 +1315,7 @@ function parseHeaderPathQueryParams(
     // contains the unescaped value.
     let paramValue = getRawParamValue(param);
     let querySource = "qp";
-    if (param.kind === "queryMapParam" && !param.explode) {
+    if (go.isQueryParameter(param) && isRawQueryExpansion(param)) {
       querySource = rawQueryVariable;
       paramValue = `${rawQueryVariable}.Get(${JSON.stringify(param.queryParameter)})`;
     }
@@ -1331,6 +1331,8 @@ function parseHeaderPathQueryParams(
       param.kind === "pathCollectionParam" ||
       param.kind === "pathMapParam" ||
       param.kind === "queryMapParam" ||
+      (param.kind === "queryCollectionParam" &&
+        (param.collectionFormat === "csv" || param.collectionFormat === "multi")) ||
       (go.isQueryParameter(param) && param.queryExpansion)
     ) {
       requiredHelpers.uriTemplate = true;
@@ -1637,7 +1639,9 @@ function parseHeaderPathQueryParams(
           // check array before body in case the body is just an array
           if (param.type.kind === "slice") {
             paramNilCheck.push(
-              go.isQueryParameter(param) && param.queryExpansion
+              go.isQueryParameter(param) &&
+                (param.queryExpansion ||
+                  (param.kind === "queryCollectionParam" && param.collectionFormat === "csv"))
                 ? `${getFinalParamValue(pkg, param, paramValues)} != nil`
                 : `len(${getFinalParamValue(pkg, param, paramValues)}) > 0`,
             );
@@ -1820,7 +1824,9 @@ function getFinalParamValue(
     // optional params are always in their "final" form
     if (
       param.kind === "headerCollectionParam" ||
-      (param.kind === "queryCollectionParam" && !param.queryExpansion)
+      (param.kind === "queryCollectionParam" &&
+        !param.queryExpansion &&
+        param.collectionFormat !== "csv")
     ) {
       // for required params that are collections of strings, we split them inline.
       // not necessary for optional params as they're already in slice format.

@@ -85,9 +85,9 @@ func (client *TestClient) Get(ctx context.Context, options *TestClientGetOptions
 
 // getCreateRequest creates the Get request.
 func (client *TestClient) getCreateRequest(ctx context.Context, _ *TestClientGetOptions) (*policy.Request, error) {
-	urlPath := "/api-version/{apiVersion}"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/api-version/{apiVersion}")
 	urlPath = strings.ReplaceAll(urlPath, "{apiVersion}", url.PathEscape(client.apiVersion))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}

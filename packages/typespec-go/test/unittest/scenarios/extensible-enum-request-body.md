@@ -98,8 +98,8 @@ func (client *ExtensibleEnumRequestBodyClient) SendOptional(ctx context.Context,
 
 // sendOptionalCreateRequest creates the SendOptional request.
 func (client *ExtensibleEnumRequestBodyClient) sendOptionalCreateRequest(ctx context.Context, options *ExtensibleEnumRequestBodyClientSendOptionalOptions) (*policy.Request, error) {
-	urlPath := "/enum-optional"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/enum-optional")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +137,8 @@ func (client *ExtensibleEnumRequestBodyClient) SendRequired(ctx context.Context,
 
 // sendRequiredCreateRequest creates the SendRequired request.
 func (client *ExtensibleEnumRequestBodyClient) sendRequiredCreateRequest(ctx context.Context, payload Payload, _ *ExtensibleEnumRequestBodyClientSendRequiredOptions) (*policy.Request, error) {
-	urlPath := "/enum-required"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/enum-required")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

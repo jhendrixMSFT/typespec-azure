@@ -90,8 +90,8 @@ func (client *RegressionsClient) SpreadWithModel(ctx context.Context, name strin
 
 // spreadWithModelCreateRequest creates the SpreadWithModel request.
 func (client *RegressionsClient) spreadWithModelCreateRequest(ctx context.Context, name string, options *RegressionsClientSpreadWithModelOptions) (*policy.Request, error) {
-	urlPath := "/spread-with-model"
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	urlPath := runtime.JoinPaths(client.endpoint, "/spread-with-model")
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

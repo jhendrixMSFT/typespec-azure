@@ -97,7 +97,7 @@ func (client *RegressionsClient) WithClientDefaultValues(ctx context.Context, op
 
 // withClientDefaultValuesCreateRequest creates the WithClientDefaultValues request.
 func (client *RegressionsClient) withClientDefaultValuesCreateRequest(ctx context.Context, options *RegressionsClientWithClientDefaultValuesOptions) (*policy.Request, error) {
-	urlPath := "/non-string-path-params/{color}/{count}"
+	urlPath := runtime.JoinPaths(client.endpoint, "/non-string-path-params/{color}/{count}")
 	colorDefault := ColorBlue
 	if options != nil && options.Color != nil {
 		colorDefault = *options.Color
@@ -108,7 +108,7 @@ func (client *RegressionsClient) withClientDefaultValuesCreateRequest(ctx contex
 		countDefault = *options.Count
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{count}", url.PathEscape(strconv.FormatInt(int64(countDefault), 10)))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.endpoint, urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}

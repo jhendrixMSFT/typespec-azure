@@ -112,13 +112,13 @@ func (client *VersionedClient) WithPathAPIVersion(ctx context.Context, resourceI
 
 // withPathAPIVersionCreateRequest creates the WithPathAPIVersion request.
 func (client *VersionedClient) withPathAPIVersionCreateRequest(ctx context.Context, resourceID string, _ *VersionedClientWithPathAPIVersionOptions) (*policy.Request, error) {
-	urlPath := "/with-path-api-version/{apiVersion}/resources/{resourceId}"
+	urlPath := runtime.JoinPaths(client.endpoint, "/with-path-api-version/{apiVersion}/resources/{resourceId}")
 	urlPath = strings.ReplaceAll(urlPath, "{apiVersion}", url.PathEscape(client.apiVersion))
 	if resourceID == "" {
 		return nil, errors.New("parameter resourceID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{resourceId}", url.PathEscape(resourceID))
-	req, err := runtime.NewRequest(ctx, http.MethodHead, runtime.JoinPaths(client.endpoint, urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodHead, urlPath)
 	if err != nil {
 		return nil, err
 	}

@@ -199,7 +199,7 @@ func (client *ConfigurationsClient) GetContent(ctx context.Context, apiVersion s
 
 // getContentCreateRequest creates the GetContent request.
 func (client *ConfigurationsClient) getContentCreateRequest(ctx context.Context, apiVersion string, resourceGroupName string, configurationName string, _ *ConfigurationsClientGetContentOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -212,7 +212,7 @@ func (client *ConfigurationsClient) getContentCreateRequest(ctx context.Context,
 		return nil, errors.New("parameter configurationName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{configurationName}", url.PathEscape(configurationName))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (client *ConfigurationsClient) GetStreamingContent(ctx context.Context, api
 
 // getStreamingContentCreateRequest creates the GetStreamingContent request.
 func (client *ConfigurationsClient) getStreamingContentCreateRequest(ctx context.Context, apiVersion string, resourceGroupName string, configurationName string, _ *ConfigurationsClientGetStreamingContentOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}/content"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}/content")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -269,7 +269,7 @@ func (client *ConfigurationsClient) getStreamingContentCreateRequest(ctx context
 		return nil, errors.New("parameter configurationName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{configurationName}", url.PathEscape(configurationName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +315,7 @@ func (client *ConfigurationsClient) GetTextContent(ctx context.Context, apiVersi
 
 // getTextContentCreateRequest creates the GetTextContent request.
 func (client *ConfigurationsClient) getTextContentCreateRequest(ctx context.Context, apiVersion string, resourceGroupName string, configurationName string, _ *ConfigurationsClientGetTextContentOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}/textContent"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}/textContent")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -328,7 +328,7 @@ func (client *ConfigurationsClient) getTextContentCreateRequest(ctx context.Cont
 		return nil, errors.New("parameter configurationName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{configurationName}", url.PathEscape(configurationName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +378,7 @@ func (client *ConfigurationsClient) PutStreamingContent(ctx context.Context, api
 
 // putStreamingContentCreateRequest creates the PutStreamingContent request.
 func (client *ConfigurationsClient) putStreamingContentCreateRequest(ctx context.Context, apiVersion string, resourceGroupName string, configurationName string, body io.ReadSeekCloser, _ *ConfigurationsClientPutStreamingContentOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}/putContent"
+	urlPath := runtime.JoinPaths(client.internal.Endpoint(), "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Test/configurations/{configurationName}/putContent")
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
@@ -391,7 +391,7 @@ func (client *ConfigurationsClient) putStreamingContentCreateRequest(ctx context
 		return nil, errors.New("parameter configurationName cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{configurationName}", url.PathEscape(configurationName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, urlPath)
 	if err != nil {
 		return nil, err
 	}
