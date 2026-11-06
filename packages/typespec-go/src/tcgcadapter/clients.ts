@@ -2019,6 +2019,18 @@ export class ClientAdapter {
       }
       respEnv.result.docs.summary = sdkResponseType.summary;
       respEnv.result.docs.description = sdkResponseType.doc;
+    } else if (sdkResponseType.kind === "union" && sdkResponseType.discriminatedOptions) {
+      const type = this.ta.getWireType(sdkResponseType, false, true);
+      if (type.kind !== "interface") {
+        throw new AdapterError(
+          "InternalError",
+          `expected interface for discriminated union ${sdkResponseType.name}`,
+          sdkResponseType.__raw?.node,
+        );
+      }
+      respEnv.result = new go.PolymorphicResult(type);
+      respEnv.result.docs.summary = sdkResponseType.summary;
+      respEnv.result.docs.description = sdkResponseType.doc;
     } else if (sdkResponseType.kind === "union") {
       // multi-response
       const resultTypes: Record<number, go.WireType> = {};
@@ -2462,6 +2474,9 @@ export class ClientAdapter {
         }
         break;
       case "union":
+        if (exampleType.type.discriminatedOptions && goType.kind === "interface") {
+          return this.adaptRawExample(exampleType.value, goType);
+        }
         throw new AdapterError("UnsupportedTsp", "unsupported example type kind union");
       case "model":
         if (
@@ -2522,6 +2537,114 @@ export class ClientAdapter {
       "InternalError",
       `can not map go type into example type ${exampleType.kind}`,
     );
+  }
+
+  private adaptRawExample(
+    value: unknown,
+    type: go.WireType,
+  ): Exclude<go.ExampleType, go.TokenCredentialExample> {
+    type = go.unwrapPtr(type);
+    if (value === null) {
+      return new go.NullExample(type);
+    }
+    switch (type.kind) {
+      case "any":
+        return new go.AnyExample(value);
+      case "constant":
+      case "encodedBytes":
+      case "etag":
+      case "literal":
+      case "readSeekCloser":
+      case "scalar":
+      case "string":
+      case "time":
+        if (typeof value === "string") {
+          return new go.StringExample(value, type);
+        }
+        if (
+          typeof value === "number" &&
+          (type.kind === "constant" ||
+            type.kind === "literal" ||
+            type.kind === "scalar" ||
+            type.kind === "time")
+        ) {
+          return new go.NumberExample(value, type);
+        }
+        if (
+          typeof value === "boolean" &&
+          (type.kind === "constant" || type.kind === "literal" || type.kind === "scalar")
+        ) {
+          return new go.BooleanExample(value, type);
+        }
+        break;
+      case "slice":
+        if (Array.isArray(value)) {
+          const example = new go.ArrayExample(type);
+          example.value = value.map((item: unknown) => this.adaptRawExample(item, type.itemType));
+          return example;
+        }
+        break;
+      case "map":
+        if (typeof value === "object" && !Array.isArray(value)) {
+          const example = new go.DictionaryExample(type);
+          for (const [key, item] of Object.entries(value)) {
+            example.value[key] = this.adaptRawExample(item, type.itemType);
+          }
+          return example;
+        }
+        break;
+      case "interface":
+      case "model":
+      case "polymorphicModel":
+        if (typeof value === "object" && !Array.isArray(value)) {
+          const entries = Object.entries(value);
+          let model: go.Model | go.PolymorphicModel | undefined;
+          if (type.kind === "interface") {
+            const tag = entries.find(([key]) => key === type.discriminatorField)?.[1];
+            model =
+              type.possibleTypes.find((candidate) => {
+                const literal = candidate.discriminatorValue;
+                return (
+                  literal &&
+                  (literal.type.kind === "constant"
+                    ? (literal.literal as go.ConstantValue).value
+                    : literal.literal) === tag
+                );
+              }) ?? type.rootType;
+            if (!model) {
+              throw new AdapterError(
+                "UnsupportedTsp",
+                `unrecognized discriminator value ${String(tag)} in example for ${type.name}`,
+              );
+            }
+          } else {
+            model = type;
+          }
+          const example = new go.StructExample(model);
+          for (const [key, item] of entries) {
+            const field = model.fields.find((field) => field.serializedName === key);
+            if (field) {
+              example.value[field.name] = this.adaptRawExample(item, field.type);
+              continue;
+            }
+            const additional = model.fields.find(go.isAdditionalProperties);
+            if (!additional) {
+              throw new AdapterError(
+                "UnsupportedTsp",
+                `field ${key} not found in example model ${model.name}`,
+              );
+            }
+            example.additionalProperties ??= {};
+            example.additionalProperties[key] = this.adaptRawExample(
+              item,
+              additional.type.itemType,
+            );
+          }
+          return example;
+        }
+        break;
+    }
+    throw new AdapterError("UnsupportedTsp", `cannot map example value to type ${type.kind}`);
   }
 }
 

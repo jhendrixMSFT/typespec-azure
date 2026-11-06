@@ -5,6 +5,28 @@ import { describe, expect, it } from "vitest";
 import { emitGoFor } from "./scenario-runner.js";
 
 describe("Recursive type adaptation", () => {
+  it.each([
+    { modelName: "PetCat", unionFirst: false, kind: "variant type" },
+    { modelName: "PetCat", unionFirst: true, kind: "variant type" },
+    { modelName: "PetClassification", unionFirst: false, kind: "interface" },
+    { modelName: "PetClassification", unionFirst: true, kind: "interface" },
+  ])(
+    "rejects a model named $modelName colliding with a discriminated union (union first: $unionFirst)",
+    async ({ modelName, unionFirst, kind }) => {
+      const modelOperation = `@route("/model") @get op getModel(): ${modelName};`;
+      const unionOperation = '@route("/pet") @get op getPet(): Pet;';
+      await expect(
+        emitGoFor(`
+          @service namespace Test;
+          model Cat { meow: boolean; }
+          model ${modelName} { value: string; }
+          @discriminated union Pet { cat: Cat }
+          ${unionFirst ? unionOperation + modelOperation : modelOperation + unionOperation}
+        `),
+      ).rejects.toThrow(`duplicate discriminated union ${kind} name ${modelName}`);
+    },
+  );
+
   it("retains fields on mutually recursive models and union variants", async () => {
     const files = await emitGoFor(`
       @service namespace Test;

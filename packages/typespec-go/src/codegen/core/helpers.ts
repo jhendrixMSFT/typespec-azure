@@ -1079,7 +1079,9 @@ export function getSerDeFormat(
     type = recursiveUnwrapMapSlice(type);
     switch (type.kind) {
       case "interface":
-        recursiveWalkModelFields(type.rootType, serDeFormat);
+        if (type.rootType) {
+          recursiveWalkModelFields(type.rootType, serDeFormat);
+        }
         for (const possibleType of type.possibleTypes) {
           recursiveWalkModelFields(possibleType, serDeFormat);
         }

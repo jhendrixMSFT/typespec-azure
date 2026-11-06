@@ -28,8 +28,6 @@ export function generatePolymorphicHelpers(pkg: go.FakePackage | go.PackageConte
     imports.addForPkg(pkg.parent);
   }
 
-  text += imports.text();
-
   const scalars = new Set<string>();
   const arrays = new Set<string>();
   const maps = new Set<string>();
@@ -104,6 +102,11 @@ export function generatePolymorphicHelpers(pkg: go.FakePackage | go.PackageConte
     return "";
   }
 
+  if (content.interfaces.some((iface) => !iface.rootType && scalars.has(iface.name))) {
+    imports.add("fmt");
+  }
+  text += imports.text();
+
   let prefix = "";
   if (pkg.kind === "fake") {
     // content is being generated into a separate package, set the type name prefix
@@ -139,7 +142,12 @@ export function generatePolymorphicHelpers(pkg: go.FakePackage | go.PackageConte
         indent.pop();
       }
       text += `${indent.get()}default:\n`;
-      text += `${indent.push().get()}b = &${prefix}${interfaceType.rootType.name}{}\n`;
+      indent.push();
+      if (interfaceType.rootType) {
+        text += `${indent.get()}b = &${prefix}${interfaceType.rootType.name}{}\n`;
+      } else {
+        text += `${indent.get()}return nil, fmt.Errorf("unrecognized discriminator value %v for ${interfaceType.name}", m["${interfaceType.discriminatorField}"])\n`;
+      }
       text += `${indent.pop().get()}}\n`;
       text += `${indent.get()}if err := json.Unmarshal(rawMsg, b); err != nil {\n`;
       text += `${indent.push().get()}return nil, err\n`;
